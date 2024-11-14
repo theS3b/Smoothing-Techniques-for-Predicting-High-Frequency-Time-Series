@@ -1,0 +1,13 @@
+# Editors
+.vscode/
+
+# Mac/OSX
+.DS_Store
+
+# Compiled
+__pycache__/
+*.py[cod]
+*$py.class
+
+# Test
+.pytest_cache/
