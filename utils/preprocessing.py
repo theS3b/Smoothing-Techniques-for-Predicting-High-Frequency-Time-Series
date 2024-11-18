@@ -7,7 +7,11 @@ def preprocess_data(data, epsilon):
 
     data = pd.get_dummies(data, columns=['country'])
 
-    data.set_index('date', inplace=True)
+    def date_to_days(date):
+        return (date - pd.Timestamp('1970-01-01')).days
+    
+    data['date'] = pd.to_datetime(data['date'])
+    data['date'] = data['date'].apply(date_to_days)
 
     means = data.mean()
     stds = data.std()

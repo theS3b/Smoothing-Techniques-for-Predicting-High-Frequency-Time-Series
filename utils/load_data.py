@@ -63,4 +63,4 @@ def load_data():
         right_on=['Reference area', 'date'],
     )
     
-    return data
+    return data.dropna()
