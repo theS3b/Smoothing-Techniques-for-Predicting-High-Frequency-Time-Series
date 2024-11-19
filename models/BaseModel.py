@@ -7,7 +7,7 @@ sklearn.set_config(enable_metadata_routing=True)
 class BaseModel():
     def __new__(*args, **kwargs):
         seed = kwargs['seed'] if 'seed' in kwargs else args[0] if len(args) > 0 else 0
-        max_iter = kwargs['max_iter'] if 'max_iter' in kwargs else 500
+        max_iter = kwargs['max_iter'] if 'max_iter' in kwargs else 1000
         early_stopping = kwargs['early_stopping'] if 'early_stopping' in kwargs else True
 
         hidden_layer_sizes = (100, 20)
@@ -16,6 +16,8 @@ class BaseModel():
         models = []
         for i in range(n_models):
             models.append(MLPRegressor(
+                learning_rate_init=1e-3,
+                alpha=1e-5,
                 hidden_layer_sizes=hidden_layer_sizes, 
                 solver="adam", 
                 activation="relu", 

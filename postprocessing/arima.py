@@ -1,16 +1,14 @@
 from statsmodels.tsa.arima.model import ARIMA
+from pmdarima import auto_arima
 import pandas as pd
 
-def postprocess_arima(y_pred_train_country, y_pred_valid_country, p, d, q):
+def postprocess_arima(y_pred_train_country, y_pred_valid_country):
     """
     Post-processes the predictions using ARIMA model using sequential integer indexing.
 
     Args:
         y_pred_train_country (pd.DataFrame): The predictions on the training data.
         y_pred_valid_country (pd.DataFrame): The predictions on the validation data.
-        p (int): The AR order.
-        d (int): The differencing order.
-        q (int): The MA order.
     
     Returns:
         pd.DataFrame: The post-processed predictions.
@@ -36,6 +34,7 @@ def postprocess_arima(y_pred_train_country, y_pred_valid_country, p, d, q):
     for country in countries:
         # Filter data for the current country and sort by 'date' (normalized dates)
         country_data = predictions[predictions['country'] == country].copy()
+        country_data.sort_values('date', inplace=True)
 
         # Split into training and validation sets
         train_data = country_data[country_data['set'] == 'train']
@@ -45,25 +44,36 @@ def postprocess_arima(y_pred_train_country, y_pred_valid_country, p, d, q):
         residuals = train_data['residual'].reset_index(drop=True)
 
         # Check if we have enough data points to fit ARIMA
-        if len(residuals) > max(p, d, q):
-            # Fit ARIMA model using integer index as time index
-            model = ARIMA(residuals, order=(p, d, q))
-            model_fit = model.fit()
-
-            # Forecast residuals for the validation period
-            n_forecast = len(valid_data)
-            print(f"Forecasting {n_forecast} steps for {country}")
-            forecast_resid = model_fit.forecast(steps=n_forecast)
-
-            # Adjust the predictions in the validation set
-            adjusted_country_data = country_data.copy()
-            adjusted_country_data.loc[adjusted_country_data['set'] == 'validation', 'y_pred'] += forecast_resid.values
-
+        if len(residuals) > 2:
+            try:
+                model = auto_arima(
+                    residuals,
+                    start_p=0, max_p=3,
+                    start_q=0, max_q=3,
+                    start_d=0, max_d=3,
+                    seasonal=False,
+                    trace=False,
+                    error_action='ignore',
+                    suppress_warnings=True,
+                    stepwise=True
+                )
+                # Forecast residuals
+                n_forecast = len(valid_data)
+                forecast_resid = model.predict(n_periods=n_forecast)
+                print(f'model params: {model.order}')
+                # Adjust predictions
+                adjusted_country_data = country_data.copy()
+                adjusted_country_data.loc[adjusted_country_data['set'] == 'validation', 'y_pred'] += forecast_resid
+            except Exception as e:
+                print(f'auto_arima failed for country {country}: {e}')
+                adjusted_country_data = country_data.copy()
         else:
-            # If not enough data, keep the original predictions
             adjusted_country_data = country_data.copy()
 
         adjusted_predictions.append(adjusted_country_data)
+
+        print(f'Post-processed predictions for {country}')
+        print(adjusted_country_data)
 
     # Combine all adjusted predictions
     adjusted_predictions = pd.concat(adjusted_predictions).sort_index()
