@@ -13,12 +13,13 @@ def preprocess_data(data, epsilon):
 
     data.sort_values(by=['date', 'country'], inplace=True)
 
+    # Normalize GDP but not the date
+    # data_date = data['date']
     data = pd.get_dummies(data, columns=['country'])
-
     means = data.mean()
     stds = data.std()
-
     data = (data - means) / (stds + epsilon)
+    # data['date'] = data_date
 
     return data.drop('GDP', axis=1), data['GDP'], means['GDP'], stds['GDP']
     
