@@ -1,25 +1,23 @@
 import pandas as pd
+from datetime import datetime
 
 def preprocess_data(data, epsilon):
     data.rename(columns={'OBS_VALUE': 'GDP'}, inplace=True)
     data.drop(['Reference area'], axis=1, inplace=True)
     data.dropna(inplace=True)
 
-    def date_to_days(date):
-        return (date - pd.Timestamp('1970-01-01')).days
+    data['date'] = data['date'].apply(lambda x: datetime.strptime(x, '%Y-%m-%d'))
+    data['date'] = (data['date'] - data['date'].min()).dt.days
+    data['date'] = data['date'] / data['date'].max()
+
+    data.sort_values('date', inplace=True)
+
+    data_encoded = pd.get_dummies(data, columns=['country'])
     
-    data['date'] = pd.to_datetime(data['date'])
-    data['date'] = data['date'].apply(date_to_days)
+    means = data_encoded.mean()
+    stds = data_encoded.std()
 
-    data.sort_values(by=['date', 'country'], inplace=True)
+    data_encoded = (data_encoded - means) / (stds + epsilon)
 
-    # Normalize GDP but not the date
-    # data_date = data['date']
-    data = pd.get_dummies(data, columns=['country'])
-    means = data.mean()
-    stds = data.std()
-    data = (data - means) / (stds + epsilon)
-    # data['date'] = data_date
-
-    return data.drop('GDP', axis=1), data['GDP'], means['GDP'], stds['GDP']
+    return data_encoded.drop('GDP', axis=1), data_encoded['GDP'], means['GDP'], stds['GDP']
     
