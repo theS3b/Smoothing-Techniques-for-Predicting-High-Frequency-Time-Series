@@ -27,7 +27,7 @@ class KFModel:
         for country in np.unique(countries):
             country_data = nn_predictions[countries == country]
 
-            # As initial values, we use a mean of the first n samples
+            # As initial values, we use the mean of (position, velocity, acceleration) over the first n samples
             n = 5
             initial_gdp = np.mean(country_data[:n])
             initial_velocity = np.mean([country_data[i + 1] - country_data[i] for i in range(n)])
@@ -44,8 +44,9 @@ class KFModel:
             self.kfs[country].Q = k * np.eye(3)         # Process noise covariance
             self.kfs[country].H = np.array([[1, 0, 0]]) # Measurement matrix, only position is observed
             self.kfs[country].R = nn_var                # Measurement noise covariance, the noise in the neural network predictions
-            self.kfs[country].P = k                     # Initial error covariance, large initial uncertainty
+            self.kfs[country].P = np.eye(3)
             # TODO : P and Q (process and measurement noise) should have different values for k 
+            # TODO : les KFs sont-ils entrainés séparement
 
         return self.predict(X, countries)
 
@@ -61,5 +62,8 @@ class KFModel:
             self.kfs[country].update(np.array([prediction]))
 
             kf_predictions.append(self.kfs[country].x[0])
+
+        print([self.kfs[country].K for country in self.kfs])
+        print([self.kfs[country].x for country in self.kfs])
 
         return np.array(kf_predictions)
