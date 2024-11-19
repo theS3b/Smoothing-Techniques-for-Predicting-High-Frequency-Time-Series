@@ -63,7 +63,4 @@ class KFModel:
 
             kf_predictions.append(self.kfs[country].x[0])
 
-        print([self.kfs[country].K for country in self.kfs])
-        print([self.kfs[country].x for country in self.kfs])
-
         return np.array(kf_predictions)
