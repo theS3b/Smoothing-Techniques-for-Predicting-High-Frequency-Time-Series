@@ -8,7 +8,6 @@ def preprocess_data(data, epsilon):
 
     data['date'] = data['date'].apply(lambda x: datetime.strptime(x, '%Y-%m-%d'))
     data['date'] = (data['date'] - data['date'].min()).dt.days
-    data['date'] = data['date'] / data['date'].max()
 
     data.sort_values('date', inplace=True)
 
