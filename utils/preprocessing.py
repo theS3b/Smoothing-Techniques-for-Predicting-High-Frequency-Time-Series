@@ -40,6 +40,7 @@ def preprocess_data(data, epsilon, take_gdp_diff=True, past_gdp_lag=None):
         data.dropna(inplace=True)
 
     # TODO add possibility to include past values of google trends
+    # TODO perform trend removal
 
     data_encoded = pd.get_dummies(data, columns=['country'])
 

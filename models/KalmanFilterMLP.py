@@ -1,11 +1,11 @@
 import numpy as np
 from filterpy.kalman import KalmanFilter
-from models.BaseModel import BaseModel
+from models.MLP import MLP
 
-class KFModel:
+class KalmanFilterMLP:
     def __init__(self, seed):
         self.seed = seed
-        self.nn = BaseModel(seed=seed)
+        self.nn = MLP(seed=seed)
 
         # KFs for each country
         self.kfs = {}
@@ -47,8 +47,6 @@ class KFModel:
             self.kfs[country].P = np.eye(3)
             # TODO : P and Q (process and measurement noise) should have different values for k 
             # TODO : les KFs sont-ils entrainés séparement
-
-        return self.predict(X, countries)
 
     def predict(self, X, countries):
         model_predictions = self.nn.predict(X)
