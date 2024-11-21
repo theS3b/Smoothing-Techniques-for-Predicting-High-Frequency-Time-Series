@@ -18,21 +18,28 @@ of these inputs. As a result, the model can capture country-specific elasticitie
 (Tracking activity in real time with Google Trends, Nicolas Woloszko)
 """
 
+id_to_name = {
+    'CH' : 'Switzerland',
+    'DE' : 'Germany',
+    'GB' : 'United Kingdom',
+    'JP' : 'Japan',
+    'CA' : 'Canada',
+    'KR' : 'Korea',
+    'US' : 'United States',
+}
+
+Q_lookup = {
+    'Q1' : 3,
+    'Q2' : 6,
+    'Q3' : 9,
+    'Q4' : 12,
+}
+
 def load_data():
     gdp_data = pd.read_csv(GDP_PATH)
     gdp_data = gdp_data[gdp_data['Price base']=='Current prices']
     y = gdp_data[['Reference area','TIME_PERIOD','OBS_VALUE']]
     del gdp_data
-
-    id_to_name = {
-        'CH' : 'Switzerland',
-        'DE' : 'Germany',
-        'GB' : 'United Kingdom',
-        'JP' : 'Japan',
-        'CA' : 'Canada',
-        'KR' : 'Korea',
-        'US' : 'United States',
-    }
 
     X = []
     for id_ in id_to_name.keys():
@@ -45,13 +52,7 @@ def load_data():
     X = pd.concat(X).drop(['Trademark_attorney_average', 
                                         'Grants-in-Aid_for_Scientific_Research_average',
                                         'Research_&_Experimentation_Tax_Credit_average'],axis=1).reset_index(drop=True)
-
-    Q_lookup = {
-        'Q1' : 3,
-        'Q2' : 6,
-        'Q3' : 9,
-        'Q4' : 12,
-    }
+    
     y['date'] = y['TIME_PERIOD'].apply(lambda x: f"{x.split('-')[0]}-{Q_lookup[x.split('-')[1]]:02d}-01")
     y.drop('TIME_PERIOD', inplace=True, axis=1)
 
@@ -62,5 +63,22 @@ def load_data():
         left_on=['country', 'date'],
         right_on=['Reference area', 'date'],
     )
-    
-    return data.dropna()
+
+    y.rename(columns={'Reference area':'country', 'OBS_VALUE':'GDP'}, inplace=True)
+
+    return data.dropna(), y[y['country'].isin(X['country'].unique())].dropna()
+
+def load_gt_data():
+    X = []
+    for id_ in id_to_name.keys():
+        f = pd.read_csv(f'{GOOGLE_TRENDS_BASE_PATH}{id_}.csv')
+        cols_to_keep = [c for c in f.columns if c[-8:]=='_average' or c=='date']
+        f = f[cols_to_keep]
+        f['country'] = id_to_name[id_]
+        f.columns = [c.replace(f'{id_}_', '') for c in f.columns]
+        X.append(f)
+    X = pd.concat(X).drop(['Trademark_attorney_average', 
+                                        'Grants-in-Aid_for_Scientific_Research_average',
+                                        'Research_&_Experimentation_Tax_Credit_average'],axis=1).reset_index(drop=True)
+
+    return X.dropna()
