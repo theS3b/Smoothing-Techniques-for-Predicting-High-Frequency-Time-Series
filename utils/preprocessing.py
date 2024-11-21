@@ -27,6 +27,13 @@ def preprocess_data(data, epsilon, number_train, mode=None, all_gdps=None, past_
         else:
             all_gdps['date'] = all_gdps['date'].apply(lambda x: datetime.strptime(x, '%Y-%m-%d'))
 
+            if mode == 'diff':
+                all_gdps['GDP'] = all_gdps.groupby('country')['GDP'].diff()
+                all_gdps = all_gdps.dropna()
+            elif mode == 'pct':
+                all_gdps['GDP'] = all_gdps.groupby('country')['GDP'].pct_change()
+                all_gdps = all_gdps.dropna()
+
     data = data.copy()
 
     data.rename(columns={'OBS_VALUE': 'GDP'}, inplace=True)
@@ -40,20 +47,21 @@ def preprocess_data(data, epsilon, number_train, mode=None, all_gdps=None, past_
     # TODO perform trend removal (on GT and GDP ?)
 
     if mode == 'diff':
-        data['GDP'] = data['GDP'].diff()
+        data['GDP'] = data.groupby('country')['GDP'].diff()
         data = data.dropna()
     elif mode == 'pct':
-        data['GDP'] = data['GDP'].pct_change()
+        data['GDP'] = data.groupby('country')['GDP'].pct_change()
         data = data.dropna()
 
     if past_gdp_lags:
         for lag in np.sort(past_gdp_lags)[::-1]:
-            data[f'GDP_lag_{lag}'] = data.apply(lambda x: _get_lagged_gdp(x['date'], x['country'], all_gdps, lag), axis=1)
+            data[f'GDP_lag_{lag}'] = data.apply(lambda x: _get_lagged_gdp(x['date'], x['country'], all_gdps=all_gdps, lag=lag), axis=1)
         len_before = len(data)
         data.dropna(inplace=True)
         print(f"Dropped {len_before - len(data)} rows because of missing lagged GDP values")
 
-    data['date'] = (data['date'] - data['date'].min()).dt.days
+    min_date = data['date'].min()
+    data['date'] = (data['date'] - min_date).dt.days
 
     data_encoded = pd.get_dummies(data, columns=['country'])
 
@@ -84,7 +92,44 @@ def preprocess_data(data, epsilon, number_train, mode=None, all_gdps=None, past_
     print(f"y_train shape : {y_train.shape}")
     print(f"y_valid shape : {y_valid.shape}")
 
-    return X_train, y_train, X_valid, y_valid, country_train, country_valid, y_mean, y_std
+    return X_train, y_train, X_valid, y_valid, country_train, country_valid, X_means, X_stds, y_mean, y_std, min_date
+
+def preprocess_gt_data(data, epsilon, X_means, X_stds, min_date):
+    """
+    Preprocess the Google Trends data for the prediction model
+
+    Parameters
+    ----------
+    data : pd.DataFrame
+        The data to preprocess
+    epsilon : float
+        The epsilon value to use to avoid division by zero
+    X_means : pd.Series
+        The means of the training data
+    X_stds : pd.Series
+        The standard deviations of the training data
+    """
+    data = data.copy()
+
+    data.dropna(inplace=True)
+
+    data['date'] = data['date'].apply(lambda x: datetime.strptime(x, '%Y-%m-%d'))
+    data.sort_values('date', inplace=True)
+    
+    data['date'] = (data['date'] - min_date).dt.days
+    
+    countries = data['country'].reset_index(drop=True)
+
+    data_encoded = pd.get_dummies(data, columns=['country'])
+
+    X = data_encoded.reset_index(drop=True)
+
+
+    X_valid = _normalize(X, X_means, X_stds, epsilon)
+
+    print(f"New X_valid shape : {X_valid.shape}")
+
+    return X_valid, countries
 
 def _normalize(data, means, stds, epsilon):
     """
