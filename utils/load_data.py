@@ -43,7 +43,7 @@ def load_data():
     del gdp_data
 
     # Load GT data
-    X = load_gt_data()
+    all_GT_data = load_gt_data()
     
     # Match the date format
     y['date'] = y['TIME_PERIOD'].apply(lambda x: f"{x.split('-')[0]}-{Q_lookup[x.split('-')[1]]:02d}-01")
@@ -54,7 +54,7 @@ def load_data():
 
     # Inner join on GDP and GT data (on country and date)
     data = pd.merge(
-        left=X, 
+        left=all_GT_data, 
         right=y,
         how='inner',
         left_on=['country', 'date'],
@@ -66,9 +66,9 @@ def load_data():
 
     # Only the countries present in the GT data (with have lots countries for the GDP data but few for the GT data)
     # This also contains past GDP values (before the GT data starts)
-    all_GDPs = y[y['country'].isin(X['country'].unique())].dropna()
+    all_GDPs = y[y['country'].isin(all_GT_data['country'].unique())].dropna()
 
-    return dataset, all_GDPs
+    return dataset, all_GDPs, all_GT_data
 
 def load_gt_data():
     X = []
