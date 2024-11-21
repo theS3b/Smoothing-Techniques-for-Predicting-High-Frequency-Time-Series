@@ -2,7 +2,7 @@ import pandas as pd
 import numpy as np
 from datetime import datetime
 
-def preprocess_data(data, epsilon, number_train, mode=None, all_gdps=None, past_gdp_lags=None):
+def preprocess_data(data, epsilon, train_pct, mode=None, all_gdps=None, past_gdp_lags=None):
     """
     Preprocess the data for the prediction model
 
@@ -25,14 +25,14 @@ def preprocess_data(data, epsilon, number_train, mode=None, all_gdps=None, past_
         if all_gdps is None or any(lag < 1 for lag in past_gdp_lags):
             raise ValueError("You need to provide all the GDP values to include past GDP lags, and the lags should be positive integers")
         else:
+            all_gdps = all_gdps.copy()
+
             all_gdps['date'] = all_gdps['date'].apply(lambda x: datetime.strptime(x, '%Y-%m-%d'))
 
             if mode == 'diff':
-                all_gdps['GDP'] = all_gdps.groupby('country')['GDP'].diff()
-                all_gdps = all_gdps.dropna()
+                all_gdps['GDP'] = all_gdps.sort_values('date').groupby('country')['GDP'].diff()
             elif mode == 'pct':
-                all_gdps['GDP'] = all_gdps.groupby('country')['GDP'].pct_change()
-                all_gdps = all_gdps.dropna()
+                all_gdps['GDP'] = all_gdps.sort_values('date').groupby('country')['GDP'].pct_change()
 
     data = data.copy()
 
@@ -67,6 +67,8 @@ def preprocess_data(data, epsilon, number_train, mode=None, all_gdps=None, past_
 
     X = data_encoded.drop('GDP', axis=1).reset_index(drop=True)
     y = data_encoded['GDP'].reset_index(drop=True)
+
+    number_train = np.floor(X.shape[0] * train_pct).astype(int)
 
     X_train, X_valid  = X.iloc[:number_train], X.iloc[number_train:]
     y_train, y_valid = y.iloc[:number_train], y.iloc[number_train:]
@@ -143,12 +145,12 @@ def _get_lagged_gdp(date, country, all_gdps, lag):
     """
     all_dates = all_gdps[all_gdps['country'] == country]['date'].sort_values().values
 
-    curr_date_index = np.where(all_dates == date)[0][0]
+    curr_date_index = np.where(all_dates == date)
 
-    if curr_date_index < lag:
+    if not curr_date_index or curr_date_index[0][0] < lag:
         print(f"Warning : {country} has not enough data to compute the lagged GDP at date {date} with lag {lag}, removing the row.")
         return np.nan
 
-    date_lag = all_dates[curr_date_index - lag]
+    date_lag = all_dates[curr_date_index[0][0] - lag]
 
     return all_gdps[(all_gdps['date'] == date_lag) & (all_gdps['country'] == country)]['GDP'].values[0]
