@@ -2,7 +2,7 @@ import pandas as pd
 import numpy as np
 from datetime import datetime
 
-def preprocess_data(data, epsilon, train_pct, mode=None, all_gdps=None, past_gdp_lags=None):
+def preprocess_data(data, epsilon, train_pct, mode=None, diff_period=1, all_GDPs=None, past_GDP_lags=None):
     """
     Preprocess the data for the prediction model
 
@@ -12,50 +12,42 @@ def preprocess_data(data, epsilon, train_pct, mode=None, all_gdps=None, past_gdp
         The data to preprocess
     epsilon : float
         The epsilon value to use to avoid division by zero
-    number_train : int
-        The number of samples to use for training
+    train_pct : float
+        The percentage of data to use for training
     mode : str
         The mode to use for the GDP values, either 'diff' (take the difference) or 'pct' (take the percentage change)
-    all_gdps : pd.DataFrame
+    diff_period : int
+        The period to use for the difference or percentage change
+    all_GDPs : pd.DataFrame
         The GDP values for all the countries, needed to compute the lagged GDP values
-    past_gdp_lags : list
+    past_GDP_lags : list
         The list of past GDP lags to include in the data
     """
-    if past_gdp_lags:
-        if all_gdps is None or any(lag < 1 for lag in past_gdp_lags):
+
+    # Check if we need the to include past GDP values
+    if past_GDP_lags:
+        if all_GDPs is None or any(lag < 1 for lag in past_GDP_lags):
             raise ValueError("You need to provide all the GDP values to include past GDP lags, and the lags should be positive integers")
-        else:
-            all_gdps = all_gdps.copy()
+        
+        # Copy for good practice
+        all_GDPs = all_GDPs.copy()
 
-            all_gdps['date'] = all_gdps['date'].apply(lambda x: datetime.strptime(x, '%Y-%m-%d'))
+        # Convert the date to datetime
+        all_GDPs['date'] = all_GDPs['date'].apply(lambda x: datetime.strptime(x, '%Y-%m-%d'))
 
-            if mode == 'diff':
-                all_gdps['GDP'] = all_gdps.sort_values('date').groupby('country')['GDP'].diff()
-            elif mode == 'pct':
-                all_gdps['GDP'] = all_gdps.sort_values('date').groupby('country')['GDP'].pct_change()
+        # Get either the difference or the percentage change
+        all_GDPs = _column_to_column_diff(all_GDPs, 'GDP', 'country', mode, diff_period, 'date')
 
     data = data.copy()
-
-    data.rename(columns={'OBS_VALUE': 'GDP'}, inplace=True)
-    data.drop(['Reference area'], axis=1, inplace=True)
-
-    data.dropna(inplace=True)
-
     data['date'] = data['date'].apply(lambda x: datetime.strptime(x, '%Y-%m-%d'))
-    data.sort_values('date', inplace=True)
     
     # TODO perform trend removal (on GT and GDP ?)
 
-    if mode == 'diff':
-        data['GDP'] = data.groupby('country')['GDP'].diff()
-        data = data.dropna()
-    elif mode == 'pct':
-        data['GDP'] = data.groupby('country')['GDP'].pct_change()
-        data = data.dropna()
+    data = _column_to_column_diff(data, 'GDP', 'country', mode, diff_period, 'date').dropna()
 
-    if past_gdp_lags:
-        for lag in np.sort(past_gdp_lags)[::-1]:
-            data[f'GDP_lag_{lag}'] = data.apply(lambda x: _get_lagged_gdp(x['date'], x['country'], all_gdps=all_gdps, lag=lag), axis=1)
+    if past_GDP_lags:
+        for lag in np.sort(past_GDP_lags)[::-1]:
+            data[f'GDP_lag_{lag}'] = data.apply(lambda x: _get_lagged_gdp(x['date'], x['country'], all_gdps=all_GDPs, lag=lag), axis=1)
         len_before = len(data)
         data.dropna(inplace=True)
         print(f"Dropped {len_before - len(data)} rows because of missing lagged GDP values")
@@ -80,7 +72,7 @@ def preprocess_data(data, epsilon, train_pct, mode=None, all_gdps=None, past_gdp
     X_stds, y_std = X_train.std(), y_train.std()
 
     # replace the mean and std of lagged GDP values by the mean and std of the GDP
-    if past_gdp_lags:
+    if past_GDP_lags:
         X_means[X_train.columns.str.contains('GDP_lag')] = y_mean
         X_stds[X_train.columns.str.contains('GDP_lag')] = y_std
 
@@ -154,3 +146,35 @@ def _get_lagged_gdp(date, country, all_gdps, lag):
     date_lag = all_dates[curr_date_index[0][0] - lag]
 
     return all_gdps[(all_gdps['date'] == date_lag) & (all_gdps['country'] == country)]['GDP'].values[0]
+
+def _column_to_column_diff(data, col_name, grouping_by, mode, diff_period=1, sort_by=None):
+    """
+    Get the difference or the percentage change of a column
+
+    Parameters
+    ----------
+    data : pd.DataFrame
+        The data to preprocess
+    col_name : str
+        The name of the column to compute the difference or percentage change
+    grouping_by : str
+        The column to group by
+    mode : str
+        The mode to use for the GDP values, either 'diff' (take the difference) or 'pct' (take the percentage change)
+    diff_period : int
+        The period to use for the difference or percentage change
+    sort_by : str
+        The column to sort the data by
+    """
+    if sort_by:
+        data.sort_values(sort_by, inplace=True)
+
+    # Get either the difference or the percentage change
+    if mode == 'diff':
+        data[col_name] = data.groupby(grouping_by)[col_name].diff(periods=diff_period)
+    elif mode == 'pct':
+        data[col_name] = data.groupby(grouping_by)[col_name].pct_change(periods=diff_period)
+    else:
+        raise ValueError("The mode should be either 'diff' or 'pct'")
+    
+    return data

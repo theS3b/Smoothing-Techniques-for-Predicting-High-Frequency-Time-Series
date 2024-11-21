@@ -36,37 +36,39 @@ Q_lookup = {
 }
 
 def load_data():
+    # Load GDP data
     gdp_data = pd.read_csv(GDP_PATH)
     gdp_data = gdp_data[gdp_data['Price base']=='Current prices']
     y = gdp_data[['Reference area','TIME_PERIOD','OBS_VALUE']]
     del gdp_data
 
-    X = []
-    for id_ in id_to_name.keys():
-        f = pd.read_csv(f'{GOOGLE_TRENDS_BASE_PATH}{id_}.csv')
-        cols_to_keep = [c for c in f.columns if c[-8:]=='_average' or c=='date']
-        f = f[cols_to_keep]
-        f['country'] = id_to_name[id_]
-        f.columns = [c.replace(f'{id_}_', '') for c in f.columns]
-        X.append(f)
-    X = pd.concat(X).drop(['Trademark_attorney_average', 
-                                        'Grants-in-Aid_for_Scientific_Research_average',
-                                        'Research_&_Experimentation_Tax_Credit_average'],axis=1).reset_index(drop=True)
+    # Load GT data
+    X = load_gt_data()
     
+    # Match the date format
     y['date'] = y['TIME_PERIOD'].apply(lambda x: f"{x.split('-')[0]}-{Q_lookup[x.split('-')[1]]:02d}-01")
     y.drop('TIME_PERIOD', inplace=True, axis=1)
 
+    # Rename columns
+    y.rename(columns={'Reference area':'country', 'OBS_VALUE':'GDP'}, inplace=True)
+
+    # Inner join on GDP and GT data (on country and date)
     data = pd.merge(
         left=X, 
         right=y,
-        how='outer',
+        how='inner',
         left_on=['country', 'date'],
-        right_on=['Reference area', 'date'],
+        right_on=['country', 'date'],
     )
 
-    y.rename(columns={'Reference area':'country', 'OBS_VALUE':'GDP'}, inplace=True)
+    # All data, with dropna for safety
+    dataset = data.dropna()
 
-    return data.dropna(), y[y['country'].isin(X['country'].unique())].dropna()
+    # Only the countries present in the GT data (with have lots countries for the GDP data but few for the GT data)
+    # This also contains past GDP values (before the GT data starts)
+    all_GDPs = y[y['country'].isin(X['country'].unique())].dropna()
+
+    return dataset, all_GDPs
 
 def load_gt_data():
     X = []
