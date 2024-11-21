@@ -62,5 +62,7 @@ def load_data():
         left_on=['country', 'date'],
         right_on=['Reference area', 'date'],
     )
-    
-    return data.dropna()
+
+    y.rename(columns={'Reference area':'country', 'OBS_VALUE':'GDP'}, inplace=True)
+
+    return data.dropna(), y[y['country'].isin(X['country'].unique())].dropna()
