@@ -1,6 +1,5 @@
 import pandas as pd
 from datetime import datetime
-<<<<<<< HEAD
 
 def preprocess_data(data, epsilon, take_gdp_diff=True, past_gdp_lag=None):
     """
@@ -21,8 +20,6 @@ def preprocess_data(data, epsilon, take_gdp_diff=True, past_gdp_lag=None):
         Including the value of the GDP at time (now - K) will drop the first K rows of the data.
     """
     data = data.copy()
-=======
->>>>>>> 3c44e299b44fc8b505a4412a4c07373e46a513bc
 
     data.rename(columns={'OBS_VALUE': 'GDP'}, inplace=True)
     data.drop(['Reference area'], axis=1, inplace=True)
@@ -34,7 +31,6 @@ def preprocess_data(data, epsilon, take_gdp_diff=True, past_gdp_lag=None):
 
     data.sort_values('date', inplace=True)
 
-<<<<<<< HEAD
     if take_gdp_diff:
         data['GDP'] = data['GDP'].diff()
         data = data[1:]
@@ -57,14 +53,3 @@ def preprocess_data(data, epsilon, take_gdp_diff=True, past_gdp_lag=None):
     y = data_encoded['GDP']
 
     return X, y, data['country'], means['GDP'], stds['GDP']
-=======
-    data_encoded = pd.get_dummies(data, columns=['country'])
-    
-    means = data_encoded.mean()
-    stds = data_encoded.std()
-
-    data_encoded = (data_encoded - means) / (stds + epsilon)
-
-    return data_encoded.drop('GDP', axis=1), data_encoded['GDP'], data['country'], means['GDP'], stds['GDP']
-    
->>>>>>> 3c44e299b44fc8b505a4412a4c07373e46a513bc
