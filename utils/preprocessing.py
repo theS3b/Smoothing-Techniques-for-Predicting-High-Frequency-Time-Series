@@ -3,7 +3,7 @@ import numpy as np
 from datetime import datetime
 
 class Preprocessing:
-    def __init__(self, data, epsilon, all_GDPs = None, all_GTs = None, mode = None, diff_period = 1, past_GDP_lags = None):
+    def __init__(self, data, epsilon, all_GDPs = None, all_GTs = None, mode = None, diff_period = 1, past_GDP_lags = None, nb_past_GT=1):
         """
         Parameters
         ----------
@@ -100,7 +100,6 @@ class Preprocessing:
         self.country_train, self.country_valid = countries.values[:number_train], countries.values[number_train:]
         self.dates_train, self.dates_valid = dates.loc[:number_train], dates.loc[number_train:]
 
-
         self.X_means, self.y_mean = self.X_train.mean(), self.y_train.mean()
         self.X_stds, self.y_std = self.X_train.std(), self.y_train.std()
 
@@ -109,10 +108,10 @@ class Preprocessing:
             self.X_means[self.X_train.columns.str.contains('GDP_lag')] = self.y_mean
             self.X_stds[self.X_train.columns.str.contains('GDP_lag')] = self.y_std
 
-        self.X_train = self._normalize(self.X_train, self.X_means, self.X_stds)
-        self.X_valid = self._normalize(self.X_valid, self.X_means,self. X_stds)
-        self.y_train = self._normalize(self.y_train, self.y_mean, self.y_std)
-        self.y_valid = self._normalize(self.y_valid, self.y_mean, self.y_std)
+        #self.X_train = self._normalize(self.X_train, self.X_means, self.X_stds)
+        #self.X_valid = self._normalize(self.X_valid, self.X_means,self. X_stds)
+        #self.y_train = self._normalize(self.y_train, self.y_mean, self.y_std)
+        #self.y_valid = self._normalize(self.y_valid, self.y_mean, self.y_std)
 
         print(f"X_train shape : {self.X_train.shape}")
         print(f"X_valid shape : {self.X_valid.shape}")
