@@ -2,7 +2,7 @@ import pandas as pd
 import numpy as np
 from datetime import datetime
 
-def preprocess_data(data, epsilon, train_pct, mode=None, all_gdps=None, past_gdp_lags=None, all_gts=None, past_gt_lags=None):
+def preprocess_data(data, epsilon, train_pct, mode=None, all_gdps=None, past_gdp_lags=None, all_gts=None, past_gt_lags=None, drop_original_gts=False):
     """
     Preprocess the data for the prediction model
 
@@ -15,7 +15,8 @@ def preprocess_data(data, epsilon, train_pct, mode=None, all_gdps=None, past_gdp
     number_train : int
         The number of samples to use for training
     mode : str
-        The mode to use for the GDP values, either 'diff' (take the difference) or 'pct' (take the percentage change)
+        The mode to use for the GDP values, either 'diff' (take the difference) or 'pct' (take the percentage change) between the quarter and last year's same quarter
+        Set to none to predict the actual GDP values
     all_gdps : pd.DataFrame
         The GDP values for all the countries, needed to compute the lagged GDP values
     past_gdp_lags : list
@@ -24,6 +25,8 @@ def preprocess_data(data, epsilon, train_pct, mode=None, all_gdps=None, past_gdp
         The Google Trends values for all the countries (not preprocessed), needed to compute the lagged Google Trends values
     past_gt_lags : list
         The list of past Google Trends lags to include in the data
+    drop_original_gts : bool
+        Whether to drop the current Google Trends values or not (to use when including lagged Google Trends values)
     """
     if past_gdp_lags:
         if all_gdps is None or any(lag < 1 for lag in past_gdp_lags):
@@ -34,14 +37,14 @@ def preprocess_data(data, epsilon, train_pct, mode=None, all_gdps=None, past_gdp
             all_gdps['date'] = all_gdps['date'].apply(lambda x: datetime.strptime(x, '%Y-%m-%d'))
 
             if mode == 'diff':
-                all_gdps['GDP'] = all_gdps.sort_values('date').groupby('country')['GDP'].diff()
-                print("Warning : Dropping the first row of each country because of the diff operation")
+                all_gdps['GDP'] = all_gdps.sort_values('date').groupby('country')['GDP'].diff(periods=4)
+                print("Warning : Dropping the first 3 rows of each country because of the diff operation")
             elif mode == 'pct':
-                all_gdps['GDP'] = all_gdps.sort_values('date').groupby('country')['GDP'].pct_change()
-                print("Warning : Dropping the first row of each country because of the pct operation")
+                all_gdps['GDP'] = all_gdps.sort_values('date').groupby('country')['GDP'].pct_change(periods=4)
+                print("Warning : Dropping the first 3 rows of each country because of the pct operation")
 
     if past_gt_lags:
-        if all_gts is None or any(lag < 1 for lag in past_gt_lags):
+        if all_gts is None or any(lag < 0 for lag in past_gt_lags): # we can have lag 0 to include the current value's log difference
             raise ValueError("You need to provide all the Google Trends values to include past Google Trends lags, and the lags should be positive integers")
         else:
             all_gts = all_gts.copy()
@@ -61,10 +64,14 @@ def preprocess_data(data, epsilon, train_pct, mode=None, all_gdps=None, past_gdp
     # TODO perform trend removal (on GT and GDP ?)
 
     if mode == 'diff':
-        data['GDP'] = data.groupby('country')['GDP'].diff()
+        data['GDP'] = data.groupby('country')['GDP'].diff(periods=4)
         data = data.dropna()
     elif mode == 'pct':
-        data['GDP'] = data.groupby('country')['GDP'].pct_change()
+        data['GDP'] = data.groupby('country')['GDP'].pct_change(periods=4)
+        data = data.dropna()
+    elif mode == 'yearly-log-diff':
+        log_gdp_data = data.assign(GDP=np.log(data['GDP']) + 1)
+        data['GDP'] = log_gdp_data.groupby('country')['GDP'].diff(periods=4)
         data = data.dropna()
 
     if past_gdp_lags:
@@ -81,7 +88,6 @@ def preprocess_data(data, epsilon, train_pct, mode=None, all_gdps=None, past_gdp
 
         data = data.merge(lagged_gts, left_on=["country", "date"], right_on=["country", "date"], how="left")
 
-
         len_before = len(data)
         data.dropna(inplace=True)
         len_after = len(data)
@@ -94,6 +100,10 @@ def preprocess_data(data, epsilon, train_pct, mode=None, all_gdps=None, past_gdp
     data_encoded = pd.get_dummies(data, columns=['country'])
 
     X = data_encoded.drop('GDP', axis=1).reset_index(drop=True)
+
+    if drop_original_gts:
+        X = X.drop([col for col in data_encoded.columns if col.endswith('average')], axis=1)
+
     y = data_encoded['GDP'].reset_index(drop=True)
 
     number_train = np.floor(X.shape[0] * train_pct).astype(int)
@@ -197,7 +207,7 @@ def _get_lagged_gts(all_gts, lags):
     all_gts[search_terms] = np.log(all_gts[search_terms] + 1)
 
     for lag in lags:
-        diff = (all_gts[search_terms] - all_gts.groupby("country")[search_terms].diff(3 * lag)).add_suffix(f'_lag_{lag}')
+        diff = (all_gts[search_terms] - all_gts.groupby("country")[search_terms].diff(lag)).add_suffix(f'_lag_{lag}')
         all_gts = pd.concat([all_gts, diff], axis=1)
 
     all_gts.drop(columns=search_terms, inplace=True)
