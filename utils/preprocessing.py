@@ -3,7 +3,7 @@ import numpy as np
 from datetime import datetime
 
 class Preprocessing:
-    def __init__(self, data, epsilon, all_GDPs = None, all_GTs = None, mode = None, diff_period = 1, past_GDP_lags = None, nb_past_GT=1):
+    def __init__(self, data, epsilon, all_GDPs = None, all_GTs = None, mode = None, diff_period = 1, past_GDP_lags = None, seed = 42):
         """
         Parameters
         ----------
@@ -25,6 +25,7 @@ class Preprocessing:
         self.all_GDPs = all_GDPs
         self.past_GDP_lags = past_GDP_lags
         self.all_GTs = all_GTs
+        self.seed = seed
 
         self.X_train = None
         self.y_train = None
@@ -45,7 +46,7 @@ class Preprocessing:
 
         self.preprocessed_high_freq_gt = None
 
-    def preprocess_data(self, train_pct):
+    def preprocess_data(self, train_pct, shuffle=False):
         """
         Preprocess the data for the prediction model
 
@@ -54,6 +55,8 @@ class Preprocessing:
         train_pct : float
             The percentage of data to use for training
         """
+        np.random.seed(self.seed)
+
         # Check if we need the to include past GDP values
         if self.past_GDP_lags:
             if all_GDPs is None or any(lag < 1 for lag in self.past_GDP_lags):
@@ -68,9 +71,11 @@ class Preprocessing:
             # Get either the difference or the percentage change
             all_GDPs = _column_to_column_diff(all_GDPs, 'GDP', 'country', self.mode, self.diff_period, 'date')
 
+        # Copy for good practice
         data = self.data.copy()
+
+        # Convert the date to datetime
         data['date'] = data['date'].apply(lambda x: datetime.strptime(x, '%Y-%m-%d'))
-        dates = data['date'].copy()
         
         # TODO perform trend removal (on GT and GDP ?)
 
@@ -83,23 +88,32 @@ class Preprocessing:
             data.dropna(inplace=True)
             print(f"Dropped {len_before - len(data)} rows because of missing lagged GDP values")
 
-        self.min_date = data['date'].min()
-        data['date'] = (data['date'] - self.min_date).dt.days
-
         data_encoded = pd.get_dummies(data, columns=['country'], drop_first=True)
 
-        X = data_encoded.drop('GDP', axis=1).reset_index(drop=True)
-        y = data_encoded['GDP'].reset_index(drop=True)
+        if shuffle:
+            shuffle_idx = np.random.permutation(data_encoded.shape[0])
+        else:
+            shuffle_idx = np.arange(data_encoded.shape[0])
+
+        # Separate X and y
+        X = data_encoded.drop('GDP', axis=1).reset_index(drop=True).iloc[shuffle_idx]
+        y = data_encoded['GDP'].reset_index(drop=True).iloc[shuffle_idx]
 
         number_train = np.floor(X.shape[0] * train_pct).astype(int)
 
+        # Store dates and remove them from the data (using iloc for positional slicing)
+        self.dates_train, self.dates_valid = X.iloc[:number_train]['date'], X.iloc[number_train:]['date']
+        X.drop('date', axis=1, inplace=True)
+
+        # Split the data
         self.X_train, self.X_valid  = X.iloc[:number_train], X.iloc[number_train:]
         self.y_train, self.y_valid = y.iloc[:number_train], y.iloc[number_train:]
 
+        # Store the countries separately (otherwise we would have to work with the one-hot encoded countries)
         countries = data['country']
-        self.country_train, self.country_valid = countries.values[:number_train], countries.values[number_train:]
-        self.dates_train, self.dates_valid = dates.loc[:number_train], dates.loc[number_train:]
+        self.country_train, self.country_valid = countries.iloc[shuffle_idx].values[:number_train], countries.iloc[shuffle_idx].values[number_train:]
 
+        # Prepare the normalization
         self.X_means, self.y_mean = self.X_train.mean(), self.y_train.mean()
         self.X_stds, self.y_std = self.X_train.std(), self.y_train.std()
 
@@ -108,10 +122,17 @@ class Preprocessing:
             self.X_means[self.X_train.columns.str.contains('GDP_lag')] = self.y_mean
             self.X_stds[self.X_train.columns.str.contains('GDP_lag')] = self.y_std
 
-        #self.X_train = self._normalize(self.X_train, self.X_means, self.X_stds)
-        #self.X_valid = self._normalize(self.X_valid, self.X_means,self. X_stds)
-        #self.y_train = self._normalize(self.y_train, self.y_mean, self.y_std)
-        #self.y_valid = self._normalize(self.y_valid, self.y_mean, self.y_std)
+        # Normalize the data, note that we use the mean and std of the training data for normalization
+        self.X_train = self._normalize(self.X_train, self.X_means, self.X_stds)
+        self.X_valid = self._normalize(self.X_valid, self.X_means,self. X_stds)
+        self.y_train = self._normalize(self.y_train, self.y_mean, self.y_std)
+        self.y_valid = self._normalize(self.y_valid, self.y_mean, self.y_std)
+
+        # Add the month of the date as a feature (without normalizing it, so that it can be played with (e.g. maybe a use it for interpolation))
+        self.X_train["month"] = self.dates_train.apply(lambda x: x.month)
+        self.X_valid["month"] = self.dates_valid.apply(lambda x: x.month)
+        self.X_train = pd.get_dummies(self.X_train, columns=["month"], dtype=float)
+        self.X_valid = pd.get_dummies(self.X_valid, columns=["month"], dtype=float)
 
         print(f"X_train shape : {self.X_train.shape}")
         print(f"X_valid shape : {self.X_valid.shape}")
