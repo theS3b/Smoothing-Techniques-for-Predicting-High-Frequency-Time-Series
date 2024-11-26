@@ -46,7 +46,7 @@ class Preprocessing:
 
         self.preprocessed_high_freq_gt = None
 
-    def preprocess_data(self, train_pct, shuffle=False):
+    def preprocess_data(self, train_pct, shuffle=False, splitting_date=None):
         """
         Preprocess the data for the prediction model
 
@@ -117,10 +117,10 @@ class Preprocessing:
 
         else:
             unique_dates = X['date'].unique()
-            splitting_date = unique_dates[int(train_pct * len(unique_dates))]
+            splitting_date_calc = splitting_date if splitting_date is not None else unique_dates[int(train_pct * len(unique_dates))]
 
-            train_elems = X['date'] < splitting_date
-            valid_elems = X['date'] >= splitting_date
+            train_elems = X['date'] < splitting_date_calc
+            valid_elems = X['date'] >= splitting_date_calc
 
             # Store dates and remove them from the data (using iloc for positional slicing)
             self.dates_train, self.dates_valid = X[train_elems]['date'], X[valid_elems]['date']
