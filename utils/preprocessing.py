@@ -99,19 +99,41 @@ class Preprocessing:
         X = data_encoded.drop('GDP', axis=1).reset_index(drop=True).iloc[shuffle_idx]
         y = data_encoded['GDP'].reset_index(drop=True).iloc[shuffle_idx]
 
-        number_train = np.floor(X.shape[0] * train_pct).astype(int)
-
-        # Store dates and remove them from the data (using iloc for positional slicing)
-        self.dates_train, self.dates_valid = X.iloc[:number_train]['date'], X.iloc[number_train:]['date']
-        X.drop('date', axis=1, inplace=True)
-
-        # Split the data
-        self.X_train, self.X_valid  = X.iloc[:number_train], X.iloc[number_train:]
-        self.y_train, self.y_valid = y.iloc[:number_train], y.iloc[number_train:]
-
-        # Store the countries separately (otherwise we would have to work with the one-hot encoded countries)
         countries = data['country']
-        self.country_train, self.country_valid = countries.iloc[shuffle_idx].values[:number_train], countries.iloc[shuffle_idx].values[number_train:]
+
+        if shuffle:
+            number_train = np.floor(X.shape[0] * train_pct).astype(int)
+
+            # Store dates and remove them from the data (using iloc for positional slicing)
+            self.dates_train, self.dates_valid = X.iloc[:number_train]['date'], X.iloc[number_train:]['date']
+            X.drop('date', axis=1, inplace=True)
+
+            # Split the data
+            self.X_train, self.X_valid  = X.iloc[:number_train], X.iloc[number_train:]
+            self.y_train, self.y_valid = y.iloc[:number_train], y.iloc[number_train:]
+
+            # Store the countries separately (otherwise we would have to work with the one-hot encoded countries)
+            self.country_train, self.country_valid = countries.iloc[shuffle_idx].values[:number_train], countries.iloc[shuffle_idx].values[number_train:]
+
+        else:
+            unique_dates = X['date'].unique()
+            splitting_date = unique_dates[int(train_pct * len(unique_dates))]
+
+            train_elems = X['date'] < splitting_date
+            valid_elems = X['date'] >= splitting_date
+
+            # Store dates and remove them from the data (using iloc for positional slicing)
+            self.dates_train, self.dates_valid = X[train_elems]['date'], X[valid_elems]['date']
+            X.drop('date', axis=1, inplace=True)
+
+            # Split the data
+            self.X_train, self.X_valid  = X[train_elems], X[valid_elems]
+            self.y_train, self.y_valid = y[train_elems], y[valid_elems]
+
+            number_train = len(self.X_train)
+
+            # Store the countries separately (otherwise we would have to work with the one-hot encoded countries)
+            self.country_train, self.country_valid = countries.iloc[shuffle_idx].values[:number_train], countries.iloc[shuffle_idx].values[number_train:]
 
         # Prepare the normalization
         self.X_means, self.y_mean = self.X_train.mean(), self.y_train.mean()
