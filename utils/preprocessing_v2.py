@@ -33,6 +33,7 @@ class Preprocessing:
         self.X_valid = None
         self.y_valid = None
         self.x_high_freq = None
+        self.x_columns = None
 
         self.country_high_freq = None
         self.dates_high_freq = None
@@ -151,16 +152,24 @@ class Preprocessing:
 
         # Add the month of the date as a feature (without normalizing it, so that it can be played with (e.g. maybe a use it for interpolation))
         if add_encoded_month:
-            X_train["month"] = self.dates_train.apply(lambda x: x.month)
-            X_valid["month"] = self.dates_valid.apply(lambda x: x.month)
-            
+            # Ensure 'month' column is integer to avoid float-based suffixes in dummy names
+            X_train["month"] = self.dates_train.apply(lambda x: int(x.month))
+            X_valid["month"] = self.dates_valid.apply(lambda x: int(x.month))
+            x_high_freq["month"] = self.dates_high_freq.apply(lambda x: int(x.month))
+
             # Generate dummy variables for the month column
-            X_train = pd.get_dummies(X_train, columns=["month"], dtype=float)
-            X_valid = pd.get_dummies(X_valid, columns=["month"], dtype=float)
-            
-            # Ensure the same columns in both training and validation data
-            X_train = X_train.reindex(columns=X_valid.columns, fill_value=0)
+            X_train = pd.get_dummies(X_train, columns=["month"], prefix="month", dtype=float)
+            X_valid = pd.get_dummies(X_valid, columns=["month"], prefix="month", dtype=float)
+            x_high_freq = pd.get_dummies(x_high_freq, columns=["month"], prefix="month", dtype=float)
+
+            # Align X_valid columns with X_train to ensure compatibility
             X_valid = X_valid.reindex(columns=X_train.columns, fill_value=0)
+            x_high_freq = x_high_freq.reindex(columns=X_train.columns, fill_value=0)
+
+            X_train.columns = X_train.columns.str.replace('.', '_', regex=False)
+            X_valid.columns = X_valid.columns.str.replace('.', '_', regex=False)
+            x_high_freq.columns = x_high_freq.columns.str.replace('.', '_', regex=False)
+            
 
         # Do PCA if requested
         if keep_pca_components > 0:
@@ -172,6 +181,7 @@ class Preprocessing:
             X_train_np = X_train.values
             X_valid_np = X_valid.values
             x_high_freq = x_high_freq.values
+            self.x_columns = X_train.columns
 
         y_train_np = y_train.values
         y_valid_np = y_valid.values
@@ -271,9 +281,12 @@ def get_gt_diff_logs(all_gts):
     
     # Ensure the GTs are non negative (add the minimum value to avoid negative values)
     min_values = processed_gts[search_terms].min()
-    processed_gts[search_terms] += abs(min_values)
 
-    processed_gts[search_terms] = np.log1p(processed_gts[search_terms])
+    for search_term in search_terms:
+        if min_values[search_term] < 0:
+            processed_gts[search_term] -= min_values[search_term]
+
+    processed_gts[search_terms] = np.log(processed_gts[search_terms] + 1)
 
     for nb_years in range(1, 3): # 3 will add 2 years difference
         diff = (processed_gts[search_terms] - processed_gts.groupby("country")[search_terms].diff(nb_years * 12)).add_suffix(f'_{nb_years}y_diff')
@@ -281,5 +294,9 @@ def get_gt_diff_logs(all_gts):
 
     processed_gts.drop(columns=search_terms, inplace=True, axis=1)
     processed_gts.dropna(inplace=True)
+
+    # Add original GTs as well
+    for search_term in search_terms:
+        processed_gts[search_term] = all_gts[search_term]
 
     return processed_gts
