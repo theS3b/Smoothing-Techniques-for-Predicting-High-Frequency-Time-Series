@@ -159,6 +159,7 @@ class Preprocessing:
             X_valid = pd.get_dummies(X_valid, columns=["month"], dtype=float)
             
             # Ensure the same columns in both training and validation data
+            X_train = X_train.reindex(columns=X_valid.columns, fill_value=0)
             X_valid = X_valid.reindex(columns=X_train.columns, fill_value=0)
 
         # Do PCA if requested
