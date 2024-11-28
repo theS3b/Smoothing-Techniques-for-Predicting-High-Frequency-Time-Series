@@ -61,8 +61,6 @@ def preprocess_data(data, epsilon, train_pct, mode=None, all_gdps=None, past_gdp
     data['date'] = data['date'].apply(lambda x: datetime.strptime(x, '%Y-%m-%d'))
     data.sort_values('date', inplace=True)
     
-    # TODO perform trend removal (on GT and GDP ?)
-
     if mode == 'diff':
         data['GDP'] = data.groupby('country')['GDP'].diff(periods=4)
         data = data.dropna()
@@ -70,7 +68,7 @@ def preprocess_data(data, epsilon, train_pct, mode=None, all_gdps=None, past_gdp
         data['GDP'] = data.groupby('country')['GDP'].pct_change(periods=4)
         data = data.dropna()
     elif mode == 'yearly-log-diff':
-        log_gdp_data = data.assign(GDP=np.log(data['GDP']) + 1)
+        log_gdp_data = data.assign(GDP=np.log1p(data['GDP']))
         data['GDP'] = log_gdp_data.groupby('country')['GDP'].diff(periods=4)
         data = data.dropna()
 
@@ -204,7 +202,7 @@ def _get_lagged_gts(all_gts, lags):
     """
     search_terms = [col for col in all_gts.columns if col.endswith('_average')]
 
-    all_gts[search_terms] = np.log(all_gts[search_terms] + 1)
+    all_gts[search_terms] = np.log1p(all_gts[search_terms])
 
     for lag in lags:
         diff = (all_gts[search_terms] - all_gts.groupby("country")[search_terms].diff(lag)).add_suffix(f'_lag_{lag}')
@@ -212,5 +210,7 @@ def _get_lagged_gts(all_gts, lags):
 
     all_gts.drop(columns=search_terms, inplace=True)
     all_gts.dropna(inplace=True)
+
+    print(all_gts.shape)
 
     return all_gts
