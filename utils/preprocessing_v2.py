@@ -74,7 +74,7 @@ class Preprocessing:
 
         ### All GTs
         if gt_trend_removal:
-            all_GTs = dtr.detrend_gts(all_GTs, plot=(Preprocessing.PLOT_GT_REMOVAL in other_params))
+            all_GTs = dtr.detrend_gts(self.all_GTs, plot=(Preprocessing.PLOT_GT_REMOVAL in other_params))
         else:
             all_GTs = self.all_GTs.copy()
 
@@ -115,8 +115,8 @@ class Preprocessing:
         valid_elems = X['date'] >= splitting_date_calc
 
         # Store dates and countries 
-        self.dates_train, self.dates_valid = X[train_elems]['date'], X[valid_elems]['date'].reset_index(drop=True)
-        self.country_train, self.country_valid = data[train_elems.values]['country'], data[valid_elems.values]['country'].reset_index(drop=True)
+        self.dates_train, self.dates_valid = X[train_elems]['date'].reset_index(drop=True), X[valid_elems]['date'].reset_index(drop=True)
+        self.country_train, self.country_valid = data[train_elems.values]['country'].reset_index(drop=True), data[valid_elems.values]['country'].reset_index(drop=True)
 
         # We don't want the date in the training set
         X.drop('date', axis=1, inplace=True)
@@ -139,8 +139,13 @@ class Preprocessing:
         if add_encoded_month:
             X_train["month"] = self.dates_train.apply(lambda x: x.month)
             X_valid["month"] = self.dates_valid.apply(lambda x: x.month)
+            
+            # Generate dummy variables for the month column
             X_train = pd.get_dummies(X_train, columns=["month"], dtype=float)
             X_valid = pd.get_dummies(X_valid, columns=["month"], dtype=float)
+            
+            # Ensure the same columns in both training and validation data
+            X_valid = X_valid.reindex(columns=X_train.columns, fill_value=0)
 
         # Do PCA if requested
         if keep_pca_components > 0:
@@ -162,6 +167,20 @@ class Preprocessing:
 
             X_train_np = np.concatenate([X_train_np] + noisy_data, axis=0)
             y_train_np = np.concatenate([y_train_np] * (len(noisy_data) + 1), axis=0)
+            
+            # Extend dates_train and country_train to match the length of the noisy data
+            self.dates_train = pd.concat([self.dates_train] * (len(noisy_data) + 1), ignore_index=True)
+            self.country_train = pd.concat([self.country_train] * (len(noisy_data) + 1), ignore_index=True)
+
+        # Shuffle the training data
+        shuffle_train = np.random.permutation(X_train_np.shape[0])
+
+        # Store the data
+        self.X_train = X_train_np[shuffle_train]
+        self.y_train = y_train_np[shuffle_train]
+        self.dates_train = self.dates_train.iloc[shuffle_train].reset_index(drop=True)
+        self.country_train = self.country_train.iloc[shuffle_train].reset_index(drop=True)
+
 
         # Shuffle the training data
         shuffle_train = np.random.permutation(X_train_np.shape[0])
