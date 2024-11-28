@@ -144,47 +144,45 @@ class Preprocessing:
             self.X_means[self.X_train.columns.str.contains('GDP_lag')] = self.y_mean
             self.X_stds[self.X_train.columns.str.contains('GDP_lag')] = self.y_std
 
-        # Normalize the data, note that we use the mean and std of the training data for normalization
-        self.X_train = self._normalize(self.X_train, self.X_means, self.X_stds)
-        self.X_valid = self._normalize(self.X_valid, self.X_means,self. X_stds)
-        self.y_train = self._normalize(self.y_train, self.y_mean, self.y_std)
-        self.y_valid = self._normalize(self.y_valid, self.y_mean, self.y_std)
+    X_train = _normalize(X_train, X_means, X_stds, epsilon)
+    X_valid = _normalize(X_valid, X_means, X_stds, epsilon)
+    y_train = _normalize(y_train, y_mean, y_std, epsilon)
+    y_valid = _normalize(y_valid, y_mean, y_std, epsilon)
 
-        # Add the month of the date as a feature (without normalizing it, so that it can be played with (e.g. maybe a use it for interpolation))
-        self.X_train["month"] = self.dates_train.apply(lambda x: x.month)
-        self.X_valid["month"] = self.dates_valid.apply(lambda x: x.month)
-        self.X_train = pd.get_dummies(self.X_train, columns=["month"], dtype=float)
-        self.X_valid = pd.get_dummies(self.X_valid, columns=["month"], dtype=float)
+    print(f"X_train shape : {X_train.shape}")
+    print(f"X_valid shape : {X_valid.shape}")
+    print(f"y_train shape : {y_train.shape}")
+    print(f"y_valid shape : {y_valid.shape}")
 
-        print(f"X_train shape : {self.X_train.shape}")
-        print(f"X_valid shape : {self.X_valid.shape}")
-        print(f"y_train shape : {self.y_train.shape}")
-        print(f"y_valid shape : {self.y_valid.shape}")
+    return X_train, y_train, X_valid, y_valid, country_train, country_valid, X_means, X_stds, y_mean, y_std, min_date
 
-        return self.X_train, self.y_train, self.X_valid, self.y_valid
+def preprocess_gt_data(data, epsilon, X_means, X_stds, min_date):
+    """
+    Preprocess the Google Trends data for the prediction model
+
+    Parameters
+    ----------
+    data : pd.DataFrame
+        The data to preprocess
+    epsilon : float
+        The epsilon value to use to avoid division by zero
+    X_means : pd.Series
+        The means of the training data
+    X_stds : pd.Series
+        The standard deviations of the training data
+    """
+    data = data.copy()
+
+    data.dropna(inplace=True)
+
+    data['date'] = data['date'].apply(lambda x: datetime.strptime(x, '%Y-%m-%d'))
+    data.sort_values('date', inplace=True)
     
-    def _normalize(self, data, means, stds):
-        """
-        Normalize the data using the means and stds
-        """
-        return (data - means) / (stds + self.epsilon)
+    data['date'] = (data['date'] - min_date).dt.days
     
-    def get_high_fequency_GT(self):
-        """
-        Preprocess the Google Trends data for the prediction model
-        """
-        assert self.X_train is not None, "You need to preprocess the data first"
+    countries = data['country'].reset_index(drop=True)
 
-        data = self.all_GTs.copy()
-
-        # Process the raw GT data
-        data['date'] = data['date'].apply(lambda x: datetime.strptime(x, '%Y-%m-%d'))
-        data.sort_values('date', inplace=True)
-        data['date'] = (data['date'] - self.min_date).dt.days
-        
-        countries = data['country'].reset_index(drop=True)
-        data_encoded = pd.get_dummies(data, columns=['country'])
-
+    data_encoded = pd.get_dummies(data, columns=['country'])
 
         X = data_encoded.reset_index(drop=True)
         X_normed = self._normalize(X, self.X_means, self.X_stds)
@@ -208,35 +206,3 @@ def _get_lagged_gdp(date, country, all_gdps, lag):
     date_lag = all_dates[curr_date_index[0][0] - lag]
 
     return all_gdps[(all_gdps['date'] == date_lag) & (all_gdps['country'] == country)]['GDP'].values[0]
-
-def _column_to_column_diff(data, col_name, grouping_by, mode, diff_period=1, sort_by=None):
-    """
-    Get the difference or the percentage change of a column
-
-    Parameters
-    ----------
-    data : pd.DataFrame
-        The data to preprocess
-    col_name : str
-        The name of the column to compute the difference or percentage change
-    grouping_by : str
-        The column to group by
-    mode : str
-        The mode to use for the GDP values, either 'diff' (take the difference) or 'pct' (take the percentage change)
-    diff_period : int
-        The period to use for the difference or percentage change
-    sort_by : str
-        The column to sort the data by
-    """
-    if sort_by:
-        data.sort_values(sort_by, inplace=True)
-
-    # Get either the difference or the percentage change
-    if mode == 'diff':
-        data[col_name] = data.groupby(grouping_by)[col_name].diff(periods=diff_period)
-    elif mode == 'pct':
-        data[col_name] = data.groupby(grouping_by)[col_name].pct_change(periods=diff_period)
-    else:
-        pass
-    
-    return data
