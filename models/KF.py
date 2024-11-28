@@ -2,32 +2,29 @@ import numpy as np
 from filterpy.kalman import KalmanFilter
 from models.MLP import MLP
 
-class KalmanFilterMLP:
+class KF:
     def __init__(self, seed, nb_init_samples=5):
         self.seed = seed
-        self.nn = MLP(seed=seed)
         self.nb_init_samples = nb_init_samples
 
         # KFs for each country
         self.kfs = {}
 
-    def fit(self, X, y, countries):
-        self.nn.fit(X, y)
-
+    def fit_predict(self, y_pred, y_true, countries):
         dt = 1 # Interval between observations
-        accel_var = 2e-5 # Acceleration variance, less variance in acceleration means smoother predictions
+        accel_var = 500 # Acceleration variance, less variance in acceleration means smoother predictions
                 # (because it means that the constant accel model is accurate -> more taken into account)
                 # 1 : follow the neural network predictions
-                # 1e-5 : starts lagging
                 # 1e-4 : looks good, maybe not smooth enough
+                # 1e-5 : starts lagging
                 # 0 : flat line
 
-        nn_predictions = self.nn.predict(X)
-        nn_noise_var = np.var(nn_predictions - y)
+        nn_noise_var = np.var(y_pred - y_true)
 
         self.kfs = {}
+
         for country in np.unique(countries):
-            country_data = nn_predictions[countries == country]
+            country_data = y_pred[countries == country]
 
             # As initial values, we use the mean of (position, velocity, acceleration) over the first n samples
             first_n_samples = country_data[:self.nb_init_samples]
@@ -53,11 +50,11 @@ class KalmanFilterMLP:
                 initial_acceleration_var
             ])
 
-    def predict(self, X, countries):
-        model_predictions = self.nn.predict(X)
+        return self.predict(y_pred, countries)
 
+    def predict(self, y, countries):
         kf_predictions = []
-        for prediction, country in zip(model_predictions, countries):
+        for prediction, country in zip(y, countries):
             if country not in self.kfs:
                 raise ValueError(f"Country {country} not found in kf model")
             

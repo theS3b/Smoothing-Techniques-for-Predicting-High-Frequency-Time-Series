@@ -26,7 +26,7 @@ class MLP():
         return VotingRegressor(estimators=[(f'model_{i}', model) for i, model in enumerate(models)])
 
 if __name__ == '__main__':
-    model = BasicMLP(seed=0)
+    model = MLP(seed=0)
     print(model.estimators[0][1])
     print(f"Estimator type : {model._estimator_type}")
     print(f"Number of estimators : {len(model.estimators)}")
