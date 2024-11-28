@@ -237,6 +237,6 @@ def _column_to_column_diff(data, col_name, grouping_by, mode, diff_period=1, sor
     elif mode == 'pct':
         data[col_name] = data.groupby(grouping_by)[col_name].pct_change(periods=diff_period)
     else:
-        raise ValueError("The mode should be either 'diff' or 'pct'")
+        pass
     
     return data
