@@ -174,16 +174,6 @@ class Preprocessing:
         self.y_train = y_train_np[shuffle_train]
         self.dates_train = self.dates_train.iloc[shuffle_train].reset_index(drop=True)
         self.country_train = self.country_train.iloc[shuffle_train].reset_index(drop=True)
-
-
-        # Shuffle the training data
-        shuffle_train = np.random.permutation(X_train_np.shape[0])
-
-        # Store the data
-        self.X_train = X_train_np[shuffle_train]
-        self.y_train = y_train_np[shuffle_train]
-        self.dates_train = self.dates_train.iloc[shuffle_train].reset_index(drop=True)
-        self.country_train = self.country_train.iloc[shuffle_train].reset_index(drop=True)
         self.X_valid = X_valid_np
         self.y_valid = y_valid_np
 
@@ -248,3 +238,23 @@ def _column_to_column_diff(data, col_name, grouping_by, mode, diff_period=1, sor
         pass
     
     return data
+
+def get_gt_diff_logs(all_gts):
+    processed_gts = all_gts.copy()
+
+    search_terms = [col for col in all_gts.columns if col.endswith('_average')]
+    
+    # Ensure the GTs are non negative (add the minimum value to avoid negative values)
+    min_values = processed_gts[search_terms].min()
+    processed_gts[search_terms] += abs(min_values)
+
+    processed_gts[search_terms] = np.log1p(processed_gts[search_terms])
+
+    for nb_years in range(1, 3): # 3 will add 2 years difference
+        diff = (processed_gts[search_terms] - processed_gts.groupby("country")[search_terms].diff(nb_years * 12)).add_suffix(f'_{nb_years}y_diff')
+        processed_gts = pd.concat([processed_gts, diff], axis=1)
+
+    processed_gts.drop(columns=search_terms, inplace=True, axis=1)
+    processed_gts.dropna(inplace=True)
+
+    return processed_gts
