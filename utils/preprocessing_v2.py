@@ -32,10 +32,15 @@ class Preprocessing:
         self.y_train = None
         self.X_valid = None
         self.y_valid = None
+        self.x_high_freq = None
+
+        self.country_high_freq = None
+        self.dates_high_freq = None
 
         self.country_train = None
-        self.country_valid = None
         self.dates_train = None
+
+        self.country_valid = None
         self.dates_valid = None
 
         self.X_means = None
@@ -80,6 +85,9 @@ class Preprocessing:
         for gt_data_transformation in gt_data_transformations:
             all_GTs = gt_data_transformation(all_GTs)
 
+        # Copy for the high frequency data
+        x_high_freq = all_GTs.copy()
+
         # Join the GTs and GDPs
         data = pd.merge(
             left=all_GTs, 
@@ -90,16 +98,22 @@ class Preprocessing:
         )
 
         data.dropna(inplace=True)
+        x_high_freq.dropna(inplace=True)
+
         data.sort_values(['country', 'date'], inplace=True)  # Sort the data for better clarity
+        x_high_freq.sort_values(['country', 'date'], inplace=True)  # Sort the data for better clarity
 
         # Encode dummy variables
         data_encoded = pd.get_dummies(data, columns=['country'], drop_first=True)
+        x_high_freq_encoded = pd.get_dummies(x_high_freq, columns=['country'], drop_first=True)
 
         # Separate X and y
         X = data_encoded.drop('GDP', axis=1).reset_index(drop=True)
         y = data_encoded['GDP'].reset_index(drop=True)
 
+        # Convert the date to a datetime object
         X['date'] = pd.to_datetime(X['date'])
+        x_high_freq_encoded['date'] = pd.to_datetime(x_high_freq_encoded['date'])
 
         # Determine the splitting date
         unique_dates = sorted(X['date'].unique())  # Very important to sort the dates here
@@ -109,11 +123,16 @@ class Preprocessing:
         valid_elems = X['date'] >= splitting_date_calc
 
         # Store dates and countries 
-        self.dates_train, self.dates_valid = X[train_elems]['date'].reset_index(drop=True), X[valid_elems]['date'].reset_index(drop=True)
-        self.country_train, self.country_valid = data[train_elems.values]['country'].reset_index(drop=True), data[valid_elems.values]['country'].reset_index(drop=True)
+        self.dates_train = X[train_elems]['date'].reset_index(drop=True)
+        self.dates_valid = X[valid_elems]['date'].reset_index(drop=True)
+        self.country_train = data[train_elems.values]['country'].reset_index(drop=True)
+        self.country_valid = data[valid_elems.values]['country'].reset_index(drop=True)
+        self.dates_high_freq = x_high_freq_encoded['date'].reset_index(drop=True)
+        self.country_high_freq = x_high_freq['country'].reset_index(drop=True)
 
         # We don't want the date in the training set
         X.drop('date', axis=1, inplace=True)
+        x_high_freq_encoded.drop('date', axis=1, inplace=True)
 
         # Split the data
         X_train, X_valid  = X[train_elems], X[valid_elems]
@@ -128,6 +147,7 @@ class Preprocessing:
         X_valid = self._normalize(X_valid, self.X_means, self.X_stds)
         y_train = self._normalize(y_train, self.y_mean, self.y_std)
         y_valid = self._normalize(y_valid, self.y_mean, self.y_std)
+        x_high_freq = self._normalize(x_high_freq_encoded, self.X_means, self.X_stds)
 
         # Add the month of the date as a feature (without normalizing it, so that it can be played with (e.g. maybe a use it for interpolation))
         if add_encoded_month:
@@ -146,9 +166,11 @@ class Preprocessing:
             pca_model = PCA(keep_pca_components)
             X_train_np = pca_model.fit_transform(X_train)
             X_valid_np = pca_model.transform(X_valid)
+            x_high_freq = pca_model.transform(x_high_freq)
         else:
             X_train_np = X_train.values
             X_valid_np = X_valid.values
+            x_high_freq = x_high_freq.values
 
         y_train_np = y_train.values
         y_valid_np = y_valid.values
@@ -176,13 +198,15 @@ class Preprocessing:
         self.country_train = self.country_train.iloc[shuffle_train].reset_index(drop=True)
         self.X_valid = X_valid_np
         self.y_valid = y_valid_np
+        self.x_high_freq = x_high_freq
 
         print(f"X_train shape : {self.X_train.shape}")
         print(f"X_valid shape : {self.X_valid.shape}")
         print(f"y_train shape : {self.y_train.shape}")
         print(f"y_valid shape : {self.y_valid.shape}")
+        print(f"X_high_freq shape : {self.x_high_freq.shape}")
 
-        return self.X_train, self.y_train, self.X_valid, self.y_valid
+        return self.X_train, self.y_train, self.X_valid, self.y_valid, self.x_high_freq
     
     def _normalize(self, data, means, stds):
         """
