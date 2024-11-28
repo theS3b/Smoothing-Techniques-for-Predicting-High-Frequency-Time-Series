@@ -33,6 +33,8 @@ class Preprocessing:
         self.X_valid = None
         self.y_valid = None
 
+        self.x_high_freq = None
+
         self.country_train = None
         self.country_valid = None
         self.dates_train = None
@@ -80,6 +82,9 @@ class Preprocessing:
         for gt_data_transformation in gt_data_transformations:
             all_GTs = gt_data_transformation(all_GTs)
 
+        # Copy for the high frequency data
+        x_high_freq = all_GTs.copy()
+
         # Join the GTs and GDPs
         data = pd.merge(
             left=all_GTs, 
@@ -90,6 +95,7 @@ class Preprocessing:
         )
 
         data.dropna(inplace=True)
+
         data.sort_values(['country', 'date'], inplace=True)  # Sort the data for better clarity
 
         # Encode dummy variables
@@ -109,9 +115,6 @@ class Preprocessing:
         valid_elems = X['date'] >= splitting_date_calc
 
         # Store dates and countries 
-        print(X.shape, data.shape)
-        print(valid_elems.shape)
-
         self.dates_train, self.dates_valid = X[train_elems]['date'], X[valid_elems]['date'].reset_index(drop=True)
         self.country_train, self.country_valid = data[train_elems.values]['country'], data[valid_elems.values]['country'].reset_index(drop=True)
 
@@ -170,13 +173,15 @@ class Preprocessing:
         self.country_train = self.country_train.iloc[shuffle_train].reset_index(drop=True)
         self.X_valid = X_valid_np
         self.y_valid = y_valid_np
+        self.x_high_freq = x_high_freq
 
         print(f"X_train shape : {self.X_train.shape}")
         print(f"X_valid shape : {self.X_valid.shape}")
         print(f"y_train shape : {self.y_train.shape}")
         print(f"y_valid shape : {self.y_valid.shape}")
+        print(f"X_high_freq shape : {self.x_high_freq.shape}")
 
-        return self.X_train, self.y_train, self.X_valid, self.y_valid
+        return self.X_train, self.y_train, self.X_valid, self.y_valid, self.x_high_freq
     
     def _normalize(self, data, means, stds):
         """
