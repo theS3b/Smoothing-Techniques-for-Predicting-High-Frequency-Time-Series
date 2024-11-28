@@ -165,6 +165,8 @@ class Preprocessing:
         # Store the data
         self.X_train = X_train_np[shuffle_train]
         self.y_train = y_train_np[shuffle_train]
+        self.dates_train = self.dates_train.iloc[shuffle_train]
+        self.country_train = self.country_train.iloc[shuffle_train]
         self.X_valid = X_valid_np
         self.y_valid = y_valid_np
 
