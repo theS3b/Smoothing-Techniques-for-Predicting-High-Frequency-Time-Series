@@ -110,9 +110,10 @@ class Preprocessing:
 
         # Store dates and countries 
         print(X.shape, data.shape)
+        print(valid_elems.shape)
 
-        self.dates_train, self.dates_valid = X[train_elems]['date'], X[valid_elems]['date']
-        self.country_train, self.country_valid = data.mask(train_elems)['country'], data.mask(valid_elems)['country']
+        self.dates_train, self.dates_valid = X[train_elems]['date'], X[valid_elems]['date'].reset_index(drop=True)
+        self.country_train, self.country_valid = data[train_elems.values]['country'], data[valid_elems.values]['country'].reset_index(drop=True)
 
         # We don't want the date in the training set
         X.drop('date', axis=1, inplace=True)
@@ -165,8 +166,8 @@ class Preprocessing:
         # Store the data
         self.X_train = X_train_np[shuffle_train]
         self.y_train = y_train_np[shuffle_train]
-        self.dates_train = self.dates_train.iloc[shuffle_train]
-        self.country_train = self.country_train.iloc[shuffle_train]
+        self.dates_train = self.dates_train.iloc[shuffle_train].reset_index(drop=True)
+        self.country_train = self.country_train.iloc[shuffle_train].reset_index(drop=True)
         self.X_valid = X_valid_np
         self.y_valid = y_valid_np
 
