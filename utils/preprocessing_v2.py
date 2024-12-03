@@ -3,6 +3,7 @@ import numpy as np
 from datetime import datetime
 from sklearn.decomposition import PCA
 import utils.downward_trend_removal as dtr
+import matplotlib.pyplot as plt
 
 class Preprocessing:
     PLOT_GT_REMOVAL = 'plot_gt_removal'
@@ -53,6 +54,8 @@ class Preprocessing:
 
         self.preprocessed_high_freq_gt = None
 
+        self.splitting_date = None
+
     def preprocess_data(self, train_pct, gt_trend_removal, mode, 
                         gt_data_transformations=[],
                         noisy_data_stds=[], 
@@ -98,11 +101,14 @@ class Preprocessing:
             right_on=['country', 'date'],
         )
 
+        print(f"Data shape : {data.shape}")
+        print(data[(data['country'] == 'Switzerland') & (data['date'] == '2006-03-01')][[col for col in data.columns if 'GDP' in col or 'Expense_' in col or 'date' in col or 'country' in col]].head())
+
         data.dropna(inplace=True)
         x_high_freq.dropna(inplace=True)
 
-        data.sort_values(['country', 'date'], inplace=True)  # Sort the data for better clarity
-        x_high_freq.sort_values(['country', 'date'], inplace=True)  # Sort the data for better clarity
+        data.sort_values(['date', 'country'], inplace=True)  # Sort the data for better clarity
+        x_high_freq.sort_values(['date', 'country'], inplace=True)  # Sort the data for better clarity
 
         # Encode dummy variables
         data_encoded = pd.get_dummies(data, columns=['country'], drop_first=True)
@@ -117,11 +123,12 @@ class Preprocessing:
         x_high_freq_encoded['date'] = pd.to_datetime(x_high_freq_encoded['date'])
 
         # Determine the splitting date
-        unique_dates = sorted(X['date'].unique())  # Very important to sort the dates here
-        splitting_date_calc = unique_dates[int(train_pct * len(unique_dates))]
+        splitting_date_calc = X['date'].quantile(train_pct)
 
         train_elems = X['date'] < splitting_date_calc
         valid_elems = X['date'] >= splitting_date_calc
+
+        self.splitting_date = splitting_date_calc
 
         # Store dates and countries 
         self.dates_train = X[train_elems]['date'].reset_index(drop=True)
@@ -177,6 +184,17 @@ class Preprocessing:
             X_train_np = pca_model.fit_transform(X_train)
             X_valid_np = pca_model.transform(X_valid)
             x_high_freq = pca_model.transform(x_high_freq)
+
+            # Plot if parameters are set
+            if 'plot_pca' in other_params:
+                plt.plot(np.cumsum(pca_model.explained_variance_ratio_))
+                plt.xlabel('Number of components')
+                plt.ylabel('Cumulative explained variance')
+                plt.show()
+                plt.plot(pca_model.singular_values_)
+                plt.xlabel('Number of components')
+                plt.ylabel('Singular values')
+                plt.show()
         else:
             X_train_np = X_train.values
             X_valid_np = X_valid.values
@@ -200,7 +218,7 @@ class Preprocessing:
             self.country_train = pd.concat([self.country_train] * (len(noisy_data) + 1), ignore_index=True)
 
         # Shuffle the training data
-        shuffle_train = np.random.permutation(X_train_np.shape[0])
+        shuffle_train = list(range(len(X_train_np))) # np.random.permutation(X_train_np.shape[0])
 
         # Store the data
         self.X_train = X_train_np[shuffle_train]
@@ -296,7 +314,7 @@ def get_gt_diff_logs(all_gts):
     processed_gts.dropna(inplace=True)
 
     # Add original GTs as well
-    for search_term in search_terms:
-        processed_gts[search_term] = all_gts[search_term]
+    # for search_term in search_terms:
+    #     processed_gts[search_term] = all_gts[search_term]
 
     return processed_gts
