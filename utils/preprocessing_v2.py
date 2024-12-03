@@ -73,6 +73,10 @@ class Preprocessing:
         # Copy for good practice
         all_GDPs = self.all_GDPs.copy()
 
+        # Change date format
+        all_GDPs['date'] = pd.to_datetime(all_GDPs['date'])
+        self.all_GTs['date'] = pd.to_datetime(self.all_GTs['date'])
+
         # Get either the difference or the percentage change
         all_GDPs = _column_to_column_diff(all_GDPs, 'GDP', 'country', mode, self.gdp_diff_period, 'date')
 
@@ -86,8 +90,18 @@ class Preprocessing:
         for gt_data_transformation in gt_data_transformations:
             all_GTs = gt_data_transformation(all_GTs)
 
+        # Print the GTs for Switzerland
+        # cols contains "Expense_average"
+        # cols = [col for col in all_GTs.columns if 'Expense_average' in col]
+        # print(all_GTs[all_GTs['country'] == 'Switzerland'][cols])
+
         # Copy for the high frequency data
         x_high_freq = all_GTs.copy()
+
+        # cols = [col for col in all_GTs.columns if 'Expense_average' in col] + ['date']
+        # starting_date = "2006"
+        # print(all_GDPs[(all_GDPs["country"] == "Switzerland") & (all_GDPs["date"] >= starting_date)].head())
+        # print(all_GTs[(all_GTs["country"] == "Switzerland") & (all_GTs["date"] >= starting_date)][cols].head())
 
         # Join the GTs and GDPs
         data = pd.merge(
@@ -97,6 +111,8 @@ class Preprocessing:
             left_on=['country', 'date'],
             right_on=['country', 'date'],
         )
+
+        # print(data[(data["country"] == "Switzerland") & (data["date"] >= starting_date)][cols + ["GDP"]].head())
 
         data.dropna(inplace=True)
         x_high_freq.dropna(inplace=True)
@@ -112,13 +128,10 @@ class Preprocessing:
         X = data_encoded.drop('GDP', axis=1).reset_index(drop=True)
         y = data_encoded['GDP'].reset_index(drop=True)
 
-        # Convert the date to a datetime object
-        X['date'] = pd.to_datetime(X['date'])
-        x_high_freq_encoded['date'] = pd.to_datetime(x_high_freq_encoded['date'])
-
         # Determine the splitting date
         unique_dates = sorted(X['date'].unique())  # Very important to sort the dates here
         splitting_date_calc = unique_dates[int(train_pct * len(unique_dates))]
+        print(f"Splitting date : {splitting_date_calc}")
 
         train_elems = X['date'] < splitting_date_calc
         valid_elems = X['date'] >= splitting_date_calc
@@ -146,9 +159,10 @@ class Preprocessing:
         # Normalize the data, note that we use the mean and std of the training data for normalization
         X_train = self._normalize(X_train, self.X_means, self.X_stds)
         X_valid = self._normalize(X_valid, self.X_means, self.X_stds)
+        x_high_freq = self._normalize(x_high_freq_encoded, self.X_means, self.X_stds)
         y_train = self._normalize(y_train, self.y_mean, self.y_std)
         y_valid = self._normalize(y_valid, self.y_mean, self.y_std)
-        x_high_freq = self._normalize(x_high_freq_encoded, self.X_means, self.X_stds)
+        
 
         # Add the month of the date as a feature (without normalizing it, so that it can be played with (e.g. maybe a use it for interpolation))
         if add_encoded_month:
@@ -296,7 +310,7 @@ def get_gt_diff_logs(all_gts):
     processed_gts.dropna(inplace=True)
 
     # Add original GTs as well
-    for search_term in search_terms:
-        processed_gts[search_term] = all_gts[search_term]
+    # for search_term in search_terms:
+    #     processed_gts[search_term] = all_gts[search_term]
 
     return processed_gts
