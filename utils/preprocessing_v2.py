@@ -7,6 +7,7 @@ import matplotlib.pyplot as plt
 
 class Preprocessing:
     PLOT_GT_REMOVAL = 'plot_gt_removal'
+    PLOT_PCA = 'plot_pca'
 
     def __init__(self, epsilon, all_GDPs, all_GTs, gdp_diff_period = 1, seed = 42):
         """
@@ -86,7 +87,7 @@ class Preprocessing:
 
         ### All GTs
         if gt_trend_removal:
-            all_GTs = dtr.detrend_gts(self.all_GTs, plot=(Preprocessing.PLOT_GT_REMOVAL in other_params))
+            all_GTs = dtr.detrend_gts(self.all_GTs, plot=(Preprocessing.PLOT_GT_REMOVAL in other_params and other_params[Preprocessing.PLOT_GT_REMOVAL]))
         else:
             all_GTs = self.all_GTs.copy()
 
@@ -106,8 +107,8 @@ class Preprocessing:
             right_on=['country', 'date'],
         )
 
-        print(f"Data shape : {data.shape}")
-        print(data[(data['country'] == 'Switzerland') & (data['date'] == '2006-03-01')][[col for col in data.columns if 'GDP' in col or 'Expense_' in col or 'date' in col or 'country' in col]].head())
+        # print(f"Data shape : {data.shape}")
+        # print(data[(data['country'] == 'Switzerland') & (data['date'] == '2006-03-01')][[col for col in data.columns if 'GDP' in col or 'Expense_' in col or 'date' in col or 'country' in col]].head())
 
         data.dropna(inplace=True)
         x_high_freq.dropna(inplace=True)
@@ -191,14 +192,19 @@ class Preprocessing:
             x_high_freq = pca_model.transform(x_high_freq)
 
             # Plot if parameters are set
-            if 'plot_pca' in other_params:
+            if Preprocessing.PLOT_PCA in other_params and other_params[Preprocessing.PLOT_PCA]:
+                plt.figure(figsize=(10, 3))
+                plt.subplot(1,2,1)
                 plt.plot(np.cumsum(pca_model.explained_variance_ratio_))
                 plt.xlabel('Number of components')
                 plt.ylabel('Cumulative explained variance')
-                plt.show()
+                plt.grid()
+                plt.subplot(1,2,2)
                 plt.plot(pca_model.singular_values_)
                 plt.xlabel('Number of components')
                 plt.ylabel('Singular values')
+                plt.grid()
+                plt.tight_layout()
                 plt.show()
         else:
             X_train_np = X_train.values
