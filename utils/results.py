@@ -116,9 +116,9 @@ def plot_predictions_by_country(
     country_valid,
     y_valid,
     y_pred_mean,
-    y_pred_median,
-    y_pred_best,
-    y_pred_std,
+    y_pred_median=None,
+    y_pred_best=None,
+    y_pred_std=None,
     figsize=(15, 5),
     title_prefix="",
     show_mean=True,
@@ -186,10 +186,20 @@ def plot_predictions_by_country(
         raise ValueError(f"No data found for the selected country: {selected_country}")
     
     y_true = y_valid[mask]
-    y_mean = y_pred_mean[mask]
-    y_median = y_pred_median[mask]
-    y_best = y_pred_best[mask]
-    y_std = y_pred_std[mask]
+
+    show_mean = show_mean and y_pred_mean is not None
+    show_median = show_median and y_pred_median is not None
+    show_best = show_best and y_pred_best is not None
+    fill_confidence = fill_confidence and y_pred_std is not None
+
+    if show_mean:
+        y_mean = y_pred_mean[mask]
+    if show_median:
+        y_median = y_pred_median[mask]
+    if show_best:
+        y_best = y_pred_best[mask]
+    if fill_confidence:
+        y_std = y_pred_std[mask]
     
     # Define the x-axis as a range of dates or indices
     x = np.arange(len(y_true))
@@ -278,13 +288,3 @@ def interactive_plot_predictions(
         selected_country=unique_countries
     )
 
-# To use the interactive plot, call the function with your data:
-# interactive_plot_predictions(
-#     country_valid=preprocessor.country_valid,
-#     y_valid=y_valid,
-#     y_pred_mean=y_pred_mean,
-#     y_pred_median=y_pred_median,
-#     y_pred_best=y_pred_best,
-#     y_pred_std=y_pred_std,
-#     title_prefix="GDP Prediction: "
-# )
