@@ -58,6 +58,7 @@ class Preprocessing:
 
     def preprocess_data(self, train_pct, gt_trend_removal, mode, 
                         gt_data_transformations=[],
+                        take_log_diff_gdp=False,
                         noisy_data_stds=[], 
                         keep_pca_components = -1, 
                         add_encoded_month=True, 
@@ -76,6 +77,10 @@ class Preprocessing:
         # Copy for good practice
         all_GDPs = self.all_GDPs.copy()
 
+        # Take the log
+        if take_log_diff_gdp:
+            all_GDPs['GDP'] = np.log1p(all_GDPs['GDP'])
+            
         # Get either the difference or the percentage change
         all_GDPs = _column_to_column_diff(all_GDPs, 'GDP', 'country', mode, self.gdp_diff_period, 'date')
 
