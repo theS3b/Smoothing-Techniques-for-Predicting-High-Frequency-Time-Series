@@ -3,16 +3,15 @@ from filterpy.kalman import KalmanFilter
 from models.MLP import MLP
 
 class KF:
-    def __init__(self, seed, nb_init_samples=5):
-        self.seed = seed
+    def __init__(self, nb_init_samples=5):
         self.nb_init_samples = nb_init_samples
 
         # KFs for each country
         self.kfs = {}
 
-    def fit_predict(self, y_pred, y_true, countries):
+    def fit(self, y_pred, y_true, countries):
         dt = 1 # Interval between observations
-        accel_var = 500 # Acceleration variance, less variance in acceleration means smoother predictions
+        accel_var = 1e-4 # Acceleration variance, less variance in acceleration means smoother predictions
                 # (because it means that the constant accel model is accurate -> more taken into account)
                 # 1 : follow the neural network predictions
                 # 1e-4 : looks good, maybe not smooth enough
@@ -50,9 +49,12 @@ class KF:
                 initial_acceleration_var
             ])
 
-        return self.predict(y_pred, countries)
+    def fit_predict(self, y_pred, y_true, countries):
+        self.fit(y_pred, y_true, countries)
 
-    def predict(self, y, countries):
+        return self.predict_update(y_pred, countries)
+
+    def predict_update(self, y, countries):
         kf_predictions = []
         for prediction, country in zip(y, countries):
             if country not in self.kfs:
@@ -64,3 +66,22 @@ class KF:
             kf_predictions.append(self.kfs[country].x[0])
 
         return np.array(kf_predictions)
+    
+    def accurate_predict_update(self, y, countries, override_noise_var = None):
+        if override_noise_var is None:
+            override_noise_var = 1e-7
+
+        if len(countries) != len(np.unique(countries)):
+            raise ValueError("There should be one value per country when using accurate_predict_update")
+
+        old_Rs = {}
+        for country in countries:
+            old_Rs[country] = self.kfs[country].R
+            self.kfs[country].R = override_noise_var
+
+        predictions = self.predict_update(y, countries)
+
+        for country in countries:
+            self.kfs[country].R = old_Rs[country]
+
+        return predictions
