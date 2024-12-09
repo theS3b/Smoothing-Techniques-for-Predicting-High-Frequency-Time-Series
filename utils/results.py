@@ -1,9 +1,11 @@
 import numpy as np
-from tqdm.notebook import tqdm
+from tqdm import tqdm
 import torch
 from sklearn.metrics import mean_squared_error, r2_score
 import matplotlib.pyplot as plt
 from ipywidgets import interact, widgets
+import pywt
+from scipy.interpolate import UnivariateSpline
 
 def compute_rsquared(y_true, y_pred):
     """
@@ -288,3 +290,74 @@ def interactive_plot_predictions(
         selected_country=unique_countries
     )
 
+def std_first_derivative(series):
+    """Standard deviation of the first derivative (finite differences)."""
+    diff = np.diff(series)
+    return np.std(diff) / series.shape[0]
+
+def mean_abs_first_difference(series):
+    """Mean absolute first difference."""
+    diff = np.diff(series)
+    return np.mean(np.abs(diff)) / series.shape[0]
+
+def std_second_derivative(series):
+    """Variance or standard deviation of the second derivative."""
+    second_diff = np.diff(series, n=2)
+    return np.std(second_diff) / series.shape[0]
+
+def total_variation(series):
+    """Total variation."""
+    diff = np.diff(series)
+    return np.sum(np.abs(diff)) / series.shape[0]
+
+def high_frequency_energy(series, cutoff=0.1):
+    """Fourier-based high-frequency energy."""
+    fft = np.fft.fft(series)
+    freqs = np.fft.fftfreq(len(series))
+    
+    reconstructed = np.copy(fft)
+    reconstructed[np.abs(freqs) > cutoff] = 0
+
+    filtered = np.fft.ifft(reconstructed)
+    return np.linalg.norm(filtered - series) ** 2 / series.shape[0]
+
+def wavelet_smoothness(series, wavelet='db1'):
+    """Wavelet-based smoothness measure."""
+    coeffs = pywt.wavedec(series, wavelet)
+    detail_coeffs = coeffs[1:]  # Skip approximation coefficients
+    return np.sum([np.sum(c**2) for c in detail_coeffs]) / series.shape[0]
+
+def holder_exponent(series):
+    """Estimate the Hölder exponent."""
+    diff = np.abs(np.diff(series))
+    return -np.log(np.mean(diff)) / np.log(len(series)) / series.shape[0]  # Simplified estimate
+
+def sobolev_norm(series):
+    """Sobolev norm (L2 norm of first derivative)."""
+    diff = np.diff(series)
+    return np.sqrt(np.sum(diff**2)) / series.shape[0]
+
+def integrated_abs_curvature(series):
+    """Integrated absolute curvature."""
+    second_diff = np.abs(np.diff(series, n=2))
+    return np.sum(second_diff) / series.shape[0]
+
+def spline_roughness(series):
+    """Spline-based roughness penalty."""
+    x = np.arange(len(series))
+    spline = UnivariateSpline(x, series, s=0)
+    second_derivative = spline.derivative(n=2)
+    return np.sum(second_derivative(x)**2) / series.shape[0]
+
+all_smoothness_metrics = [
+    std_first_derivative,
+    mean_abs_first_difference,
+    std_second_derivative,
+    total_variation,
+    high_frequency_energy,
+    wavelet_smoothness,
+    holder_exponent,
+    sobolev_norm,
+    integrated_abs_curvature,
+    spline_roughness
+]
