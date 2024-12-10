@@ -59,6 +59,7 @@ def bootstrap_ensemble(
     bootstrap_models = []
     mse_ensemble = np.zeros(n_ensembling)
     rsquared_ensemble = np.zeros(n_ensembling)
+    mape_ensemble = np.zeros(n_ensembling)
     y_pred_ensemble = np.zeros((X_valid.shape[0], n_ensembling))
 
     for i in tqdm(range(n_ensembling), desc="Bootstrapping Ensembling"):
@@ -77,11 +78,13 @@ def bootstrap_ensemble(
         # Calculate metrics
         mse = metrics['mse'](y_valid, y_pred)
         rsquared = metrics['rsquared'](y_valid, y_pred)
+        mape = np.mean(np.abs((y_valid - y_pred) / (y_valid + 1e-15))) * 100
 
         # Store the model and its metrics
         bootstrap_models.append(single_model)
         mse_ensemble[i] = mse
         rsquared_ensemble[i] = rsquared
+        mape_ensemble[i] = mape
         y_pred_ensemble[:, i] = y_pred.copy()
 
     # Compute aggregated statistics
@@ -97,16 +100,10 @@ def bootstrap_ensemble(
         torch.tensor(X_valid, dtype=torch.float32).to(device)
     ).cpu().detach().numpy().flatten()
 
-    worst_model_idx = np.argmin(rsquared_ensemble)
-    worst_model = bootstrap_models[worst_model_idx]
-    worst_rsquared = rsquared_ensemble[worst_model_idx]
-    y_pred_worst = worst_model(
-        torch.tensor(X_valid, dtype=torch.float32).to(device)
-    ).cpu().detach().numpy().flatten()
-
     return {
         'bootstrap_models': bootstrap_models,
         'mse_ensemble': mse_ensemble,
+        'mape_ensemble': mape_ensemble,
         'rsquared_ensemble': rsquared_ensemble,
         'y_pred_mean': y_pred_mean,
         'y_pred_std': y_pred_std,
@@ -114,7 +111,6 @@ def bootstrap_ensemble(
         'best_model': best_model,
         'best_rsquared': best_rsquared,
         'y_pred_best': y_pred_best,
-        'y_pred_worst': y_pred_worst,
     }
 
 
@@ -296,7 +292,7 @@ def interactive_plot_predictions(
     )
 
 
-def summarize_results(y_valid, y_pred_mean, rsquared_ensemble):
+def summarize_results(y_valid, y_pred_mean, rsquared_ensemble, metric_name="R squared"):
     # Plot the r squared
     ensemble_r2 = r2_score(y_valid, y_pred_mean)
     ensemble_mse = mean_squared_error(y_valid, y_pred_mean)
@@ -305,12 +301,10 @@ def summarize_results(y_valid, y_pred_mean, rsquared_ensemble):
     print(f"Ensemble MSE: {ensemble_mse}")
     print(f"Ensemble MAPE: {ensemble_mape}")
 
-    plt.figure(figsize=(10, 3))
     sns.histplot(rsquared_ensemble, bins=30, kde=True)
-    plt.xlabel("R squared")
+    plt.xlabel(metric_name)
     plt.ylabel("Density")
-    plt.title("Distribution of R squared values")
-    plt.show()
+    plt.title(f"Distribution of {metric_name} values")
 
 def std_first_derivative(series):
     """Standard deviation of the first derivative (finite differences)."""
