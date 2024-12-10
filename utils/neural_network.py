@@ -18,6 +18,7 @@ class NeuralNetwork(nn.Module):
             nn.LayerNorm(300),  # Layer normalization (reduces overfitting)
             nn.Linear(300, 100),
             nn.ReLU(),
+            nn.LayerNorm(100),  # Layer normalization (reduces overfitting)
             nn.Linear(100, 1)  # Layer normalization (reduces overfitting)
         )
 
@@ -137,6 +138,22 @@ def train_nn(x_train, y_train, x_valid, y_valid, num_epochs=2000, learning_rate=
 
     
     return model, training_loss, validation_loss, valid_r_squared, mse_losses
+
+def summarize_results(y_valid, y_pred_mean, rsquared_ensemble):
+    # Plot the r squared
+    ensemble_r2 = compute_rsquared(y_valid, y_pred_mean)
+    ensemble_mse = mean_squared_error(y_valid, y_pred_mean)
+    ensemble_mape = np.mean(np.abs((y_valid - y_pred_mean) / y_valid)) * 100
+    print(f"Ensemble R2: {ensemble_r2}")
+    print(f"Ensemble MSE: {ensemble_mse}")
+    print(f"Ensemble MAPE: {ensemble_mape}")
+
+    plt.figure(figsize=(10, 3))
+    sns.histplot(rsquared_ensemble, bins=30, kde=True)
+    plt.xlabel("R squared")
+    plt.ylabel("Density")
+    plt.title("Distribution of R squared values")
+    plt.show()
 
 def batch_data_by_country(df_data, df_hf_data, nb_prev, nb_after, other_cols_to_keep=None, verbose=True):
     pred_batches = []
