@@ -95,18 +95,8 @@ class Preprocessing:
         for gt_data_transformation in gt_data_transformations:
             all_GTs = gt_data_transformation(all_GTs)
 
-        # Print the GTs for Switzerland
-        # cols contains "Expense_average"
-        # cols = [col for col in all_GTs.columns if 'Expense_average' in col]
-        # print(all_GTs[all_GTs['country'] == 'Switzerland'][cols])
-
         # Copy for the high frequency data
         x_high_freq = all_GTs.copy()
-
-        # cols = [col for col in all_GTs.columns if 'Expense_average' in col] + ['date']
-        # starting_date = "2006"
-        # print(all_GDPs[(all_GDPs["country"] == "Switzerland") & (all_GDPs["date"] >= starting_date)].head())
-        # print(all_GTs[(all_GTs["country"] == "Switzerland") & (all_GTs["date"] >= starting_date)][cols].head())
 
         # Join the GTs and GDPs
         data = pd.merge(
@@ -133,6 +123,10 @@ class Preprocessing:
         # Separate X and y
         X = data_encoded.drop('GDP', axis=1).reset_index(drop=True)
         y = data_encoded['GDP'].reset_index(drop=True)
+
+        # Convert the date to a datetime object
+        X['date'] = pd.to_datetime(X['date'])
+        x_high_freq_encoded['date'] = pd.to_datetime(x_high_freq_encoded['date'])
 
         # Determine the splitting date
         splitting_date_calc = X['date'].quantile(train_pct)
@@ -165,10 +159,9 @@ class Preprocessing:
         # Normalize the data, note that we use the mean and std of the training data for normalization
         X_train = self._normalize(X_train, self.X_means, self.X_stds)
         X_valid = self._normalize(X_valid, self.X_means, self.X_stds)
-        x_high_freq = self._normalize(x_high_freq_encoded, self.X_means, self.X_stds)
         y_train = self._normalize(y_train, self.y_mean, self.y_std)
         y_valid = self._normalize(y_valid, self.y_mean, self.y_std)
-        
+        x_high_freq = self._normalize(x_high_freq_encoded, self.X_means, self.X_stds)
 
         # Add the month of the date as a feature (without normalizing it, so that it can be played with (e.g. maybe a use it for interpolation))
         if add_encoded_month:
