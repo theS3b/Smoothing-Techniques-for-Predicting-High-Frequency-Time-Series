@@ -6,6 +6,7 @@ import matplotlib.pyplot as plt
 from ipywidgets import interact, widgets
 import pywt
 from scipy.interpolate import UnivariateSpline
+import seaborn as sns
 
 def compute_rsquared(y_true, y_pred):
     """
@@ -289,6 +290,23 @@ def interactive_plot_predictions(
         ),
         selected_country=unique_countries
     )
+
+
+def summarize_results(y_valid, y_pred_mean, rsquared_ensemble):
+    # Plot the r squared
+    ensemble_r2 = compute_rsquared(y_valid, y_pred_mean)
+    ensemble_mse = mean_squared_error(y_valid, y_pred_mean)
+    ensemble_mape = np.mean(np.abs((y_valid - y_pred_mean) / y_valid)) * 100
+    print(f"Ensemble R2: {ensemble_r2}")
+    print(f"Ensemble MSE: {ensemble_mse}")
+    print(f"Ensemble MAPE: {ensemble_mape}")
+
+    plt.figure(figsize=(10, 3))
+    sns.histplot(rsquared_ensemble, bins=30, kde=True)
+    plt.xlabel("R squared")
+    plt.ylabel("Density")
+    plt.title("Distribution of R squared values")
+    plt.show()
 
 def std_first_derivative(series):
     """Standard deviation of the first derivative (finite differences)."""
