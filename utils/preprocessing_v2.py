@@ -3,9 +3,11 @@ import numpy as np
 from datetime import datetime
 from sklearn.decomposition import PCA
 import utils.downward_trend_removal as dtr
+import matplotlib.pyplot as plt
 
 class Preprocessing:
     PLOT_GT_REMOVAL = 'plot_gt_removal'
+    PLOT_PCA = 'plot_pca'
 
     def __init__(self, epsilon, all_GDPs, all_GTs, gdp_diff_period = 1, seed = 42):
         """
@@ -53,8 +55,11 @@ class Preprocessing:
 
         self.preprocessed_high_freq_gt = None
 
+        self.splitting_date = None
+
     def preprocess_data(self, train_pct, gt_trend_removal, mode, 
                         gt_data_transformations=[],
+                        take_log_diff_gdp=False,
                         noisy_data_stds=[], 
                         keep_pca_components = -1, 
                         add_encoded_month=True, 
@@ -73,16 +78,16 @@ class Preprocessing:
         # Copy for good practice
         all_GDPs = self.all_GDPs.copy()
 
-        # Change date format
-        all_GDPs['date'] = pd.to_datetime(all_GDPs['date'])
-        self.all_GTs['date'] = pd.to_datetime(self.all_GTs['date'])
-
+        # Take the log
+        if take_log_diff_gdp:
+            all_GDPs['GDP'] = np.log1p(all_GDPs['GDP'])
+            
         # Get either the difference or the percentage change
         all_GDPs = _column_to_column_diff(all_GDPs, 'GDP', 'country', mode, self.gdp_diff_period, 'date')
 
         ### All GTs
         if gt_trend_removal:
-            all_GTs = dtr.detrend_gts(self.all_GTs, plot=(Preprocessing.PLOT_GT_REMOVAL in other_params))
+            all_GTs = dtr.detrend_gts(self.all_GTs, plot=(Preprocessing.PLOT_GT_REMOVAL in other_params and other_params[Preprocessing.PLOT_GT_REMOVAL]))
         else:
             all_GTs = self.all_GTs.copy()
 
@@ -112,13 +117,14 @@ class Preprocessing:
             right_on=['country', 'date'],
         )
 
-        # print(data[(data["country"] == "Switzerland") & (data["date"] >= starting_date)][cols + ["GDP"]].head())
+        # print(f"Data shape : {data.shape}")
+        # print(data[(data['country'] == 'Switzerland') & (data['date'] == '2006-03-01')][[col for col in data.columns if 'GDP' in col or 'Expense_' in col or 'date' in col or 'country' in col]].head())
 
         data.dropna(inplace=True)
         x_high_freq.dropna(inplace=True)
 
-        data.sort_values(['country', 'date'], inplace=True)  # Sort the data for better clarity
-        x_high_freq.sort_values(['country', 'date'], inplace=True)  # Sort the data for better clarity
+        data.sort_values(['date', 'country'], inplace=True)  # Sort the data for better clarity
+        x_high_freq.sort_values(['date', 'country'], inplace=True)  # Sort the data for better clarity
 
         # Encode dummy variables
         data_encoded = pd.get_dummies(data, columns=['country'], drop_first=True)
@@ -129,12 +135,12 @@ class Preprocessing:
         y = data_encoded['GDP'].reset_index(drop=True)
 
         # Determine the splitting date
-        unique_dates = sorted(X['date'].unique())  # Very important to sort the dates here
-        splitting_date_calc = unique_dates[int(train_pct * len(unique_dates))]
-        print(f"Splitting date : {splitting_date_calc}")
+        splitting_date_calc = X['date'].quantile(train_pct)
 
         train_elems = X['date'] < splitting_date_calc
         valid_elems = X['date'] >= splitting_date_calc
+
+        self.splitting_date = splitting_date_calc
 
         # Store dates and countries 
         self.dates_train = X[train_elems]['date'].reset_index(drop=True)
@@ -191,6 +197,22 @@ class Preprocessing:
             X_train_np = pca_model.fit_transform(X_train)
             X_valid_np = pca_model.transform(X_valid)
             x_high_freq = pca_model.transform(x_high_freq)
+
+            # Plot if parameters are set
+            if Preprocessing.PLOT_PCA in other_params and other_params[Preprocessing.PLOT_PCA]:
+                plt.figure(figsize=(10, 3))
+                plt.subplot(1,2,1)
+                plt.plot(np.cumsum(pca_model.explained_variance_ratio_))
+                plt.xlabel('Number of components')
+                plt.ylabel('Cumulative explained variance')
+                plt.grid()
+                plt.subplot(1,2,2)
+                plt.plot(pca_model.singular_values_)
+                plt.xlabel('Number of components')
+                plt.ylabel('Singular values')
+                plt.grid()
+                plt.tight_layout()
+                plt.show()
         else:
             X_train_np = X_train.values
             X_valid_np = X_valid.values
@@ -214,7 +236,7 @@ class Preprocessing:
             self.country_train = pd.concat([self.country_train] * (len(noisy_data) + 1), ignore_index=True)
 
         # Shuffle the training data
-        shuffle_train = np.random.permutation(X_train_np.shape[0])
+        shuffle_train = list(range(len(X_train_np))) # np.random.permutation(X_train_np.shape[0])
 
         # Store the data
         self.X_train = X_train_np[shuffle_train]
