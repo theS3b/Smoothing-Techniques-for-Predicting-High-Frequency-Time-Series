@@ -9,6 +9,8 @@ from scipy.interpolate import UnivariateSpline
 import seaborn as sns
 import pandas as pd
 
+OUTPUT_DATA_PATH = "data/output_for_paper/"
+
 def compute_rsquared(y_true, y_pred):
     """
     Compute the R-squared value of the predictions.
