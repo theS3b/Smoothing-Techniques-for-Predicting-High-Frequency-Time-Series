@@ -31,6 +31,7 @@ def bootstrap_ensemble(
     seed=42,
     device=torch.device("cpu"),
     verbose=False,
+    other_pred_set=None,
     metrics=None,  # Dictionary of metric functions
 ):
     """
@@ -63,6 +64,10 @@ def bootstrap_ensemble(
     rsquared_ensemble = np.zeros(n_ensembling)
     mape_ensemble = np.zeros(n_ensembling)
     y_pred_ensemble = np.zeros((X_valid.shape[0], n_ensembling))
+    other_pred_ensemble = np.zeros((other_pred_set.shape[0], n_ensembling)) if other_pred_set is not None else None
+
+    x_valid_t = torch.tensor(X_valid, dtype=torch.float32).to(device)
+    x_other_t = torch.tensor(other_pred_set, dtype=torch.float32).to(device) if other_pred_set is not None else None
 
     for i in tqdm(range(n_ensembling), desc="Bootstrapping Ensembling"):
         current_seed = seed + i
@@ -73,9 +78,11 @@ def bootstrap_ensemble(
         single_model = result[0]  # Assuming the first element is the trained model
         
         # Generate predictions on the validation set
-        y_pred = single_model(
-            torch.tensor(X_valid, dtype=torch.float32).to(device)
-        ).cpu().detach().numpy().flatten()
+        y_pred = single_model(x_valid_t).cpu().detach().numpy().flatten()
+
+        if other_pred_set is not None:
+            other_pred = single_model(x_other_t).cpu().detach().numpy().flatten()
+            other_pred_ensemble[:, i] = other_pred
 
         # Calculate metrics
         mse = metrics['mse'](y_valid, y_pred)
@@ -87,7 +94,7 @@ def bootstrap_ensemble(
         mse_ensemble[i] = mse
         rsquared_ensemble[i] = rsquared
         mape_ensemble[i] = mape
-        y_pred_ensemble[:, i] = y_pred.copy()
+        y_pred_ensemble[:, i] = y_pred
 
     # Compute aggregated statistics
     y_pred_mean = np.mean(y_pred_ensemble, axis=1)
@@ -113,6 +120,7 @@ def bootstrap_ensemble(
         'best_model': best_model,
         'best_rsquared': best_rsquared,
         'y_pred_best': y_pred_best,
+        'other_pred_ensemble': other_pred_ensemble
     }
 
 
