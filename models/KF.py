@@ -1,9 +1,18 @@
 import numpy as np
 from filterpy.kalman import KalmanFilter
-from models.MLP import MLP
 
 class KF:
+    """
+    Kalman filter model to smooth the predictions of a neural network, with a constant acceleration model as the theoretical model.
+
+    Data is expected to be country-specific, and the model will create a filter for each country.
+    """
     def __init__(self, nb_init_samples=5):
+        """
+        Initialize the Kalman filter model
+        
+        nb_init_samples: int, the number of initial samples to use to estimate the initial state (position, velocity, acceleration) of the Kalman filter.
+        """
         self.nb_init_samples = nb_init_samples
 
         # KFs for each country
@@ -16,20 +25,13 @@ class KF:
         y_pred: np.array of shape (n_samples, ) containing the predictions
         y_true: np.array of shape (n_samples, ) containing the true values
         countries: np.array of shape (n_samples, ) containing the country of each sample
-        theoretical_noise_var: float, the theoretical model noise variance, less variance in means smoother predictions for a constant acceleration model.
-                Default to 1e-4.
-                    1 : follow the neural network predictions
-                    1e-4 : smoother but close to the neural network predictions
-                    1e-5 : starts lagging
-                    0 : flat line
+        theoretical_noise_var: float, the theoretical model noise variance, less variance means smoother predictions.
+            Defaults to 1e-4 (0: flat line, 1e-5: starts lagging, 1e-4: smoother but close to the neural network predictions, 1: follow the neural network predictions)
         """
-
         dt = 1 # Interval between observations
-
         nn_noise_var = np.var(y_pred - y_true)
 
         self.kfs = {}
-
         for country in np.unique(countries):
             country_data = y_pred[countries == country]
 
@@ -57,12 +59,16 @@ class KF:
                 initial_acceleration_var
             ])
 
-    def fit_predict(self, y_pred, y_true, countries):
-        self.fit(y_pred, y_true, countries)
-
-        return self.predict_update(y_pred, countries)
-
     def predict_update(self, y, countries):
+        """
+        Predict the next value and update the Kalman filters
+
+        y: np.array of shape (n_samples, ) containing the predictions
+        countries: np.array of shape (n_samples, ) containing the country of each sample
+
+        Returns:
+        np.array of shape (n_samples, ) containing the predictions
+        """
         kf_predictions = []
         for prediction, country in zip(y, countries):
             if country not in self.kfs:
@@ -76,6 +82,16 @@ class KF:
         return np.array(kf_predictions)
     
     def accurate_predict_update(self, y, countries, override_noise_var = None):
+        """
+        Predict the next value and update the Kalman filters with a different noise variance, then revert to the original noise variance.
+
+        y: np.array of shape (n_samples, ) containing the predictions
+        countries: np.array of shape (n_samples, ) containing the country of each sample
+        override_noise_var: float, the noise variance to use for the update step
+
+        Returns:
+        np.array of shape (n_samples, ) containing the predictions
+        """
         if override_noise_var is None:
             override_noise_var = 1e-7
 
