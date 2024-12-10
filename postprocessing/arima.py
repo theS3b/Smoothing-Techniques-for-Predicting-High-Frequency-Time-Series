@@ -63,6 +63,8 @@ def postprocess_arima_auto(y_pred_train_country, y_pred_valid_country):
                 # Print best model params
                 print(f'Best ARIMA model for {country}: {model.order}')
 
+
+
                 # Forecast predictions for the validation period
                 n_forecast = len(valid_data)
                 forecast_preds = model.predict(n_periods=n_forecast)
@@ -173,7 +175,8 @@ def postprocess_arima(y_pred_train_country, y_pred_valid_country, p, d, q):
     adjusted_predictions = pd.concat(adjusted_predictions).sort_index()
     return adjusted_predictions
 
-def smooth_nn_predictions_with_arima(predictions, p=1, d=1, q=0):
+
+def smooth_nn_predictions_with_arima(pred, p=1, d=1, q=0):
     """
     Smooths predictions from a Neural Network using ARIMA.
     
@@ -187,6 +190,11 @@ def smooth_nn_predictions_with_arima(predictions, p=1, d=1, q=0):
         np.array: Smoothed predictions.
     """
 
+    predictions = pred.copy()
+
+    # Convert dates
+    predictions['date'] = pd.to_datetime(predictions['date'])
+
     adjusted_predictions = []
 
     # Get the list of unique countries
@@ -197,19 +205,89 @@ def smooth_nn_predictions_with_arima(predictions, p=1, d=1, q=0):
         country_data = predictions[predictions['country'] == country].copy()
         country_data.sort_values('date', inplace=True)
 
+        # Reset index
+        country_data.reset_index(drop=True, inplace=True)
+
         # Check if we have enough data points to fit ARIMA
         if len(country_data) > 2:
             try:
                 # Fit ARIMA model
-                model = ARIMA(country_data['y_pred'], order=(p, d, q))
+                model = ARIMA(country_data['y_pred_high_freq'], order=(p, d, q))
                 model_fit = model.fit()
 
-                # Generate smoothed predictions (fitted values)
+                # Generate smoothed predictions
                 smoothed_predictions = model_fit.fittedvalues
 
                 # Adjust predictions
                 adjusted_country_data = country_data.copy()
-                adjusted_country_data['y_pred'] = smoothed_predictions
+                adjusted_country_data['y_pred_high_freq'] = smoothed_predictions
+
+            except Exception as e:
+                print(f'ARIMA failed for country {country}: {e}')
+                adjusted_country_data = country_data.copy()
+        else:
+            adjusted_country_data = country_data.copy()
+
+        adjusted_predictions.append(adjusted_country_data)
+
+    # Combine all adjusted predictions
+    adjusted_predictions = pd.concat(adjusted_predictions).sort_index()
+    return adjusted_predictions
+
+def smooth_nn_predictions_with_arima_auto(pred):
+    """
+    Smooths predictions from a Neural Network using ARIMA.
+    
+    Args:
+        predictions (np.array or pd.Series): The NN predictions to smooth.
+        p (int): AR order (lag order).
+        d (int): Difference order.
+        q (int): MA order.
+        
+    Returns:
+        np.array: Smoothed predictions.
+    """
+
+    predictions = pred.copy()
+
+    adjusted_predictions = []
+
+    # Get the list of unique countries
+    countries = predictions['country'].unique()
+
+    for country in countries:
+        # Filter data for the current country and sort by 'date' (normalized dates)
+        country_data = predictions[predictions['country'] == country].copy()
+        country_data.sort_values('date', inplace=True)
+
+        # Reset index
+        country_data.reset_index(drop=True, inplace=True)
+
+        # Check if we have enough data points to fit ARIMA
+        if len(country_data) > 2:
+            try:
+                # Fit ARIMA model
+                model = auto_arima(
+                    country_data['y_pred_high_freq'], 
+                    seasonal=False,  # Set True if your data has seasonality
+                    stepwise=True,   # Stepwise approach to explore parameters
+                    suppress_warnings=True,
+                    error_action="ignore",  # Ignore errors for convergence issues
+                    max_p=16, max_q=16, d=1
+                )
+                
+                # Print best model params
+                print(f'Best ARIMA model for {country}: {model.order}')
+
+                optimal_order = model.order
+                arima_model = ARIMA(country_data['y_pred_high_freq'], order=optimal_order)
+
+                # Generate smoothed predictions
+                smoothed_predictions = arima_model.fit().fittedvalues
+
+                # Adjust predictions
+                adjusted_country_data = country_data.copy()
+                adjusted_country_data['y_pred_high_freq'] = smoothed_predictions
 
             except Exception as e:
                 print(f'ARIMA failed for country {country}: {e}')
