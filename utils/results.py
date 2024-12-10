@@ -401,3 +401,23 @@ def measure_smoothness(data, dates, countries, smoothness_metrics=all_smoothness
 
     # Store different means of the smoothness values
     return [np.mean(smoothness_values), np.expm1(np.mean(np.log1p(smoothness_values))), len(smoothness_values) / np.sum(1 / smoothness_values)]
+
+def measure_smoothness_with_df(df_preds, smoothness_metrics=all_smoothness_metrics):
+
+    smoothness_values = []
+    for country in df_preds['country'].unique():
+        country_data = df_preds[df_preds['country'] == country]
+        
+        smoothness_values_per_func = []
+        for smoothness_func in smoothness_metrics:
+            smoothness_values_per_func.append(smoothness_func(country_data['data'].values))
+
+        smoothness_values.append(smoothness_values_per_func)
+
+    smoothness_values = np.array(smoothness_values)
+
+    # Store different means of the smoothness values
+    # First: Arithmetic mean
+    # Second: Geometric mean
+    # Third: Harmonic mean
+    return [np.mean(smoothness_values), np.expm1(np.mean(np.log1p(smoothness_values))), (len(smoothness_values) / np.sum(1 / smoothness_values)) * 1000]
