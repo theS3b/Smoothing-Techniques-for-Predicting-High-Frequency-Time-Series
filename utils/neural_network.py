@@ -5,7 +5,6 @@ from torch.nn import MSELoss
 from tqdm import tqdm
 import matplotlib.pyplot as plt
 from utils.results import compute_rsquared
-from sklearn.metrics import mean_squared_error
 import seaborn as sns
 import pandas as pd
 
@@ -18,6 +17,7 @@ class NeuralNetwork(nn.Module):
             nn.LayerNorm(300),  # Layer normalization (reduces overfitting)
             nn.Linear(300, 100),
             nn.ReLU(),
+            nn.LayerNorm(100),  # Layer normalization (reduces overfitting)
             nn.Linear(100, 1)  # Layer normalization (reduces overfitting)
         )
 
