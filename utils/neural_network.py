@@ -129,7 +129,7 @@ def train_nn(x_train, y_train, x_valid, y_valid, num_epochs=2000, learning_rate=
         plt.figure(figsize=(10, 3))
         plt.plot(training_loss, label="Training loss")
         plt.plot(validation_loss, label="Validation loss")
-        plt.plot(valid_r_squared, label="Validation R^2")
+        plt.plot(valid_r_squared, label="Validation $R^2$")
         plt.xlabel("Epoch")
         plt.ylabel("Loss")
         plt.title("Training and Validation Loss")
