@@ -18,7 +18,7 @@ class NeuralNetwork(nn.Module):
             nn.Linear(300, 100),
             nn.ReLU(),
             nn.LayerNorm(100),  # Layer normalization (reduces overfitting)
-            nn.Linear(100, 1)  # Layer normalization (reduces overfitting)
+            nn.Linear(100, 1)   # Output layer
         )
 
     def forward(self, x):
@@ -94,7 +94,7 @@ def train_nn(x_train, y_train, x_valid, y_valid, num_epochs=2000, learning_rate=
         training_loss.append(loss_train.item())
         validation_loss.append(loss_valid.item())
 
-        if len(y_train_t.shape) == 3 and current_gdp_idx is not None and y_train_t.shape[1] >= current_gdp_idx:
+        if len(y_pred.shape) == 3 and current_gdp_idx is not None and y_pred.shape[1] >= current_gdp_idx:
             mse_train = torch.linalg.norm(y_pred[:,current_gdp_idx,:] - y_train_t, ord=2).item() / y_train_t.size(0)
             mse_valid = torch.linalg.norm(y_pred_valid - y_valid_t, ord=2).item() / y_valid_t.size(0)
             mse_losses.append([mse_train, mse_valid])
@@ -116,7 +116,7 @@ def train_nn(x_train, y_train, x_valid, y_valid, num_epochs=2000, learning_rate=
     r_squared = compute_rsquared(y_valid, model(torch.tensor(x_valid, dtype=torch.float32).to(device)).cpu().detach().numpy().flatten())
     valid_r_squared.append(r_squared)
 
-    if len(y_train_t.shape) == 3 and current_gdp_idx is not None and y_train_t.shape[1] >= current_gdp_idx:
+    if len(y_pred_train.shape) == 3 and current_gdp_idx is not None and y_pred_train.shape[1] >= current_gdp_idx:
         mse_train = torch.linalg.norm(y_pred_train[:,current_gdp_idx,:] - y_train_t, ord=2).item() / y_train_t.size(0)
         mse_valid = torch.linalg.norm(y_pred_valid - y_valid_t, ord=2).item() / y_valid_t.size(0)
         mse_losses.append([mse_train, mse_valid])

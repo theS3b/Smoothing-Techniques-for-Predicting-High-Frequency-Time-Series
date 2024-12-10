@@ -7,6 +7,7 @@ from ipywidgets import interact, widgets
 import pywt
 from scipy.interpolate import UnivariateSpline
 import seaborn as sns
+import pandas as pd
 
 def compute_rsquared(y_true, y_pred):
     """
@@ -58,6 +59,7 @@ def bootstrap_ensemble(
     bootstrap_models = []
     mse_ensemble = np.zeros(n_ensembling)
     rsquared_ensemble = np.zeros(n_ensembling)
+    y_pred_ensemble = np.zeros((X_valid.shape[0], n_ensembling))
 
     for i in tqdm(range(n_ensembling), desc="Bootstrapping Ensembling"):
         current_seed = seed + i
@@ -80,24 +82,25 @@ def bootstrap_ensemble(
         bootstrap_models.append(single_model)
         mse_ensemble[i] = mse
         rsquared_ensemble[i] = rsquared
-
-    # Aggregate predictions from all models
-    y_pred_aggregate = np.zeros((X_valid.shape[0], n_ensembling))
-    for i, model in enumerate(bootstrap_models):
-        y_pred_aggregate[:, i] = model(
-            torch.tensor(X_valid, dtype=torch.float32).to(device)
-        ).cpu().detach().numpy().flatten()
+        y_pred_ensemble[:, i] = y_pred.copy()
 
     # Compute aggregated statistics
-    y_pred_mean = np.mean(y_pred_aggregate, axis=1)
-    y_pred_std = np.std(y_pred_aggregate, axis=1)
-    y_pred_median = np.median(y_pred_aggregate, axis=1)
+    y_pred_mean = np.mean(y_pred_ensemble, axis=1)
+    y_pred_std = np.std(y_pred_ensemble, axis=1)
+    y_pred_median = np.median(y_pred_ensemble, axis=1)
 
     # Identify the best model based on R-squared
     best_model_idx = np.argmax(rsquared_ensemble)
     best_model = bootstrap_models[best_model_idx]
     best_rsquared = rsquared_ensemble[best_model_idx]
     y_pred_best = best_model(
+        torch.tensor(X_valid, dtype=torch.float32).to(device)
+    ).cpu().detach().numpy().flatten()
+
+    worst_model_idx = np.argmin(rsquared_ensemble)
+    worst_model = bootstrap_models[worst_model_idx]
+    worst_rsquared = rsquared_ensemble[worst_model_idx]
+    y_pred_worst = worst_model(
         torch.tensor(X_valid, dtype=torch.float32).to(device)
     ).cpu().detach().numpy().flatten()
 
@@ -110,7 +113,8 @@ def bootstrap_ensemble(
         'y_pred_median': y_pred_median,
         'best_model': best_model,
         'best_rsquared': best_rsquared,
-        'y_pred_best': y_pred_best
+        'y_pred_best': y_pred_best,
+        'y_pred_worst': y_pred_worst,
     }
 
 
@@ -294,7 +298,7 @@ def interactive_plot_predictions(
 
 def summarize_results(y_valid, y_pred_mean, rsquared_ensemble):
     # Plot the r squared
-    ensemble_r2 = compute_rsquared(y_valid, y_pred_mean)
+    ensemble_r2 = r2_score(y_valid, y_pred_mean)
     ensemble_mse = mean_squared_error(y_valid, y_pred_mean)
     ensemble_mape = np.mean(np.abs((y_valid - y_pred_mean) / y_valid)) * 100
     print(f"Ensemble R2: {ensemble_r2}")
@@ -336,7 +340,7 @@ def high_frequency_energy(series, cutoff=0.1):
     reconstructed = np.copy(fft)
     reconstructed[np.abs(freqs) > cutoff] = 0
 
-    filtered = np.fft.ifft(reconstructed)
+    filtered = np.fft.ifft(reconstructed).real
     return np.linalg.norm(filtered - series) ** 2 / series.shape[0]
 
 def wavelet_smoothness(series, wavelet='db1'):
@@ -379,3 +383,25 @@ all_smoothness_metrics = [
     integrated_abs_curvature,
     spline_roughness
 ]
+
+def measure_smoothness(data, dates, countries, smoothness_metrics=all_smoothness_metrics):
+    df_preds = pd.DataFrame({
+        'date': dates,
+        'country': countries,
+        'data': [data[i] for i in range(len(data))]
+    })
+
+    smoothness_values = []
+    for country in df_preds['country'].unique():
+        country_data = df_preds[df_preds['country'] == country]
+        
+        smoothness_values_per_func = []
+        for smoothness_func in smoothness_metrics:
+            smoothness_values_per_func.append(smoothness_func(country_data['data'].values))
+
+        smoothness_values.append(smoothness_values_per_func)
+
+    smoothness_values = np.array(smoothness_values)
+
+    # Store different means of the smoothness values
+    return [np.mean(smoothness_values), np.expm1(np.mean(np.log1p(smoothness_values))), len(smoothness_values) / np.sum(1 / smoothness_values)]
