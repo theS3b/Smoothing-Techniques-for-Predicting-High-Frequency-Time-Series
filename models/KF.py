@@ -9,14 +9,22 @@ class KF:
         # KFs for each country
         self.kfs = {}
 
-    def fit(self, y_pred, y_true, countries):
+    def fit(self, y_pred, y_true, countries, accel_var=1e-4):
+        """
+        Fit the Kalman filters to the data
+        
+        y_pred: np.array of shape (n_samples, ) containing the predictions
+        y_true: np.array of shape (n_samples, ) containing the true values
+        countries: np.array of shape (n_samples, ) containing the country of each sample
+        theoretical_noise_var: float, the theoretical model noise variance, less variance in means smoother predictions for a constant acceleration model.
+                Default to 1e-4.
+                    1 : follow the neural network predictions
+                    1e-4 : smoother but close to the neural network predictions
+                    1e-5 : starts lagging
+                    0 : flat line
+        """
+
         dt = 1 # Interval between observations
-        accel_var = 1e-4 # Acceleration variance, less variance in acceleration means smoother predictions
-                # (because it means that the constant accel model is accurate -> more taken into account)
-                # 1 : follow the neural network predictions
-                # 1e-4 : looks good, maybe not smooth enough
-                # 1e-5 : starts lagging
-                # 0 : flat line
 
         nn_noise_var = np.var(y_pred - y_true)
 
