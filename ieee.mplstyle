@@ -1,0 +1,36 @@
+# Use LaTeX for rendering text
+text.usetex: True
+
+# Font family and typeface to match IEEEtran
+font.family: serif
+font.serif: Times New Roman  # IEEEtran typically uses Times New Roman
+
+# General font size configuration
+font.size: 12                # Match the 10pt font size of the IEEEtran document
+axes.titlesize: 14           # Title font size
+axes.labelsize: 12           # Axis label font size
+legend.fontsize: 10           # Smaller font for legends
+xtick.labelsize: 10           # Font size for X-axis tick labels
+ytick.labelsize: 10           # Font size for Y-axis tick labels
+
+# Line and marker styles
+lines.linewidth: 1.0         # Default line width
+lines.markersize: 5          # Default marker size
+
+# Legend configuration
+legend.loc: best             # Automatically place the legend in the best location
+legend.frameon: True         # Add a frame around the legend
+legend.framealpha: 1.0       # Fully opaque legend frame
+
+# Grid and ticks
+# axes.grid: True              # Enable grid for clarity
+grid.alpha: 0.5              # Semi-transparent grid lines
+grid.color: gray             # Light gray grid lines
+grid.linestyle: --           # Dashed grid lines
+
+# Adjust layout for tight spacing
+savefig.bbox: tight          # Tighten figure layout
+savefig.format: pdf          # Default format for saving plots is PDF
+
+# LaTeX preamble for IEEEtran compatibility
+text.latex.preamble: "\usepackage{amsmath} \usepackage{siunitx}"  # Include necessary LaTeX packages
