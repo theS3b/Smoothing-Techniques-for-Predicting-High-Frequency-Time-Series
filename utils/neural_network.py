@@ -55,7 +55,7 @@ def get_device(verbose = False):
         print(f"Using {device} device")
     return device
 
-def train_nn(x_train, y_train, x_valid, y_valid, num_epochs=2000, learning_rate=1e-3, weight_decay=1e-3, custom_loss = MSELoss(), seed = 42, verbose = True):
+def train_nn(x_train, y_train, x_valid, y_valid, num_epochs=2000, learning_rate=1e-3, weight_decay=1e-3, custom_loss = MSELoss(), current_gdp_idx=None, seed = 42, verbose = True):
     set_seed(seed)
 
     device = get_device(verbose)
@@ -94,9 +94,10 @@ def train_nn(x_train, y_train, x_valid, y_valid, num_epochs=2000, learning_rate=
         training_loss.append(loss_train.item())
         validation_loss.append(loss_valid.item())
 
-        mse_train = torch.linalg.norm(y_pred[:,4,:] - y_train_t, ord=2).item() / y_train_t.size(0)
-        mse_valid = torch.linalg.norm(y_pred_valid - y_valid_t, ord=2).item() / y_valid_t.size(0)
-        mse_losses.append([mse_train, mse_valid])
+        if len(y_train_t.shape) == 3 and current_gdp_idx is not None and y_train_t.shape[1] >= current_gdp_idx:
+            mse_train = torch.linalg.norm(y_pred[:,current_gdp_idx,:] - y_train_t, ord=2).item() / y_train_t.size(0)
+            mse_valid = torch.linalg.norm(y_pred_valid - y_valid_t, ord=2).item() / y_valid_t.size(0)
+            mse_losses.append([mse_train, mse_valid])
 
         optimizer.zero_grad()
         loss_train.backward()
@@ -115,9 +116,10 @@ def train_nn(x_train, y_train, x_valid, y_valid, num_epochs=2000, learning_rate=
     r_squared = compute_rsquared(y_valid, model(torch.tensor(x_valid, dtype=torch.float32).to(device)).cpu().detach().numpy().flatten())
     valid_r_squared.append(r_squared)
 
-    mse_train = torch.linalg.norm(y_pred_train[:,4,:] - y_train_t, ord=2).item() / y_train_t.size(0)
-    mse_valid = torch.linalg.norm(y_pred_valid - y_valid_t, ord=2).item() / y_valid_t.size(0)
-    mse_losses.append([mse_train, mse_valid])
+    if len(y_train_t.shape) == 3 and current_gdp_idx is not None and y_train_t.shape[1] >= current_gdp_idx:
+        mse_train = torch.linalg.norm(y_pred_train[:,current_gdp_idx,:] - y_train_t, ord=2).item() / y_train_t.size(0)
+        mse_valid = torch.linalg.norm(y_pred_valid - y_valid_t, ord=2).item() / y_valid_t.size(0)
+        mse_losses.append([mse_train, mse_valid])
 
     if verbose:
         print(f"Final training loss: {t_loss.item()}")
