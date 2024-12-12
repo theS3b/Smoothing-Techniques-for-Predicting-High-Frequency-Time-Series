@@ -319,17 +319,17 @@ def summarize_results(y_valid, y_pred_mean, rsquared_ensemble, metric_name="R sq
 def std_first_derivative(series):
     """Standard deviation of the first derivative (finite differences)."""
     diff = np.diff(series)
-    return np.std(diff) / series.shape[0]
+    return np.std(diff)
 
 def mean_abs_first_difference(series):
     """Mean absolute first difference."""
     diff = np.diff(series)
-    return np.mean(np.abs(diff)) / series.shape[0]
+    return np.mean(np.abs(diff))
 
 def std_second_derivative(series):
     """Variance or standard deviation of the second derivative."""
     second_diff = np.diff(series, n=2)
-    return np.std(second_diff) / series.shape[0]
+    return np.std(second_diff)
 
 def total_variation(series):
     """Total variation."""
@@ -356,7 +356,7 @@ def wavelet_smoothness(series, wavelet='db1'):
 def holder_exponent(series):
     """Estimate the Hölder exponent."""
     diff = np.abs(np.diff(series))
-    return -np.log(np.mean(diff)) / np.log(len(series)) / series.shape[0]  # Simplified estimate
+    return -np.log(np.mean(diff)) / np.log(len(series))
 
 def sobolev_norm(series):
     """Sobolev norm (L2 norm of first derivative)."""
