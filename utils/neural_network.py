@@ -145,10 +145,12 @@ def batch_data_by_country(df_data, df_hf_data, nb_prev, nb_after, other_cols_to_
     dates = []
     countries = []
     other_data_filtered = []
+    all_dates = []
 
     for country in df_data['country'].unique():
         country_data = df_data[df_data['country'] == country]
         
+        batch_dates = []
         for date_data in country_data.iterrows():
             cur_date = date_data[1]['date']
 
@@ -181,9 +183,12 @@ def batch_data_by_country(df_data, df_hf_data, nb_prev, nb_after, other_cols_to_
             pred_batches.append(batch)
             dates.append(cur_date)
             countries.append(country)
+            batch_dates.append(cur_date)
 
             if other_cols_to_keep is not None:
                 other_data_filtered.append(date_data[1][other_cols_to_keep].values)
 
+        all_dates.append(batch_dates)
+
         
-    return np.array(pred_batches), np.array(countries), np.array(dates), other_data_filtered if other_cols_to_keep is not None else None
+    return np.array(pred_batches), np.array(countries), np.array(dates), other_data_filtered if other_cols_to_keep is not None else None, all_dates
