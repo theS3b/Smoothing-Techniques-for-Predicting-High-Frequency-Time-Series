@@ -428,4 +428,4 @@ def measure_smoothness_with_df(df_preds, smoothness_metrics=all_smoothness_metri
     # First: Arithmetic mean
     # Second: Geometric mean
     # Third: Harmonic mean
-    return [np.mean(smoothness_values), np.expm1(np.mean(np.log1p(smoothness_values))), (len(smoothness_values) / np.sum(1 / smoothness_values)) * 1000]
+    return [np.mean(smoothness_values), np.expm1(np.mean(np.log1p(smoothness_values))), (len(smoothness_values) / np.sum(1 / smoothness_values)) * 50]
