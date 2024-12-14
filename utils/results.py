@@ -350,7 +350,7 @@ def std_second_derivative(series):
 def total_variation(series):
     """Total variation."""
     diff = np.diff(series)
-    return np.sum(np.abs(diff)) / series.shape[0]
+    return np.mean(np.abs(diff))
 
 def high_frequency_energy(series, cutoff=0.1):
     """Fourier-based high-frequency energy."""
@@ -369,27 +369,27 @@ def wavelet_smoothness(series, wavelet='db1'):
     detail_coeffs = coeffs[1:]  # Skip approximation coefficients
     return np.sum([np.sum(c**2) for c in detail_coeffs]) / series.shape[0]
 
-def holder_exponent(series):
-    """Estimate the Hölder exponent."""
-    diff = np.abs(np.diff(series))
-    return -np.log(np.mean(diff)) / np.log(len(series))
+# def holder_exponent(series):
+#     """Estimate the Hölder exponent."""
+#     diff = np.abs(np.diff(series))
+#     return -np.log(np.mean(diff)) / np.log(len(series))
 
-def sobolev_norm(series):
+def l2_norm_of_derivative(series):
     """Sobolev norm (L2 norm of first derivative)."""
     diff = np.diff(series)
-    return np.sqrt(np.sum(diff**2)) / series.shape[0]
+    return np.linalg.norm(diff) / series.shape[0]
 
 def integrated_abs_curvature(series):
     """Integrated absolute curvature."""
     second_diff = np.abs(np.diff(series, n=2))
-    return np.sum(second_diff) / series.shape[0]
+    return np.mean(second_diff)
 
 def spline_roughness(series):
     """Spline-based roughness penalty."""
     x = np.arange(len(series))
     spline = UnivariateSpline(x, series, s=0)
     second_derivative = spline.derivative(n=2)
-    return np.sum(second_derivative(x)**2) / series.shape[0]
+    return np.mean(second_derivative(x)**2)
 
 all_smoothness_metrics = [
     std_first_derivative,
@@ -398,8 +398,7 @@ all_smoothness_metrics = [
     total_variation,
     high_frequency_energy,
     wavelet_smoothness,
-    holder_exponent,
-    sobolev_norm,
+    l2_norm_of_derivative,
     integrated_abs_curvature,
     spline_roughness
 ]
