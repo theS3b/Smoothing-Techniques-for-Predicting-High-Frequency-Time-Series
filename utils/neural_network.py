@@ -95,8 +95,8 @@ def train_nn(x_train, y_train, x_valid, y_valid, num_epochs=2000, learning_rate=
         validation_loss.append(loss_valid.item())
 
         if len(y_pred.shape) == 3 and current_gdp_idx is not None and y_pred.shape[1] >= current_gdp_idx:
-            mse_train = torch.linalg.norm(y_pred[:,current_gdp_idx,:] - y_train_t, ord=2).item() / y_train_t.size(0)
-            mse_valid = torch.linalg.norm(y_pred_valid - y_valid_t, ord=2).item() / y_valid_t.size(0)
+            mse_train = torch.linalg.norm(y_pred[:,current_gdp_idx,:].squeeze() - y_train_t.squeeze(), ord=2).item() / y_train_t.size(0)
+            mse_valid = torch.linalg.norm(y_pred_valid.squeeze() - y_valid_t.squeeze(), ord=2).item() / y_valid_t.size(0)
             mse_losses.append([mse_train, mse_valid])
 
         optimizer.zero_grad()
@@ -117,8 +117,8 @@ def train_nn(x_train, y_train, x_valid, y_valid, num_epochs=2000, learning_rate=
     valid_r_squared.append(r_squared)
 
     if len(y_pred_train.shape) == 3 and current_gdp_idx is not None and y_pred_train.shape[1] >= current_gdp_idx:
-        mse_train = torch.linalg.norm(y_pred_train[:,current_gdp_idx,:] - y_train_t, ord=2).item() / y_train_t.size(0)
-        mse_valid = torch.linalg.norm(y_pred_valid - y_valid_t, ord=2).item() / y_valid_t.size(0)
+        mse_train = torch.linalg.norm(y_pred_train[:,current_gdp_idx,:].squeeze() - y_train_t.squeeze(), ord=2).item() / y_train_t.size(0)
+        mse_valid = torch.linalg.norm(y_pred_valid.squeeze() - y_valid_t.squeeze(), ord=2).item() / y_valid_t.size(0)
         mse_losses.append([mse_train, mse_valid])
 
     if verbose:

@@ -22,6 +22,13 @@ def compute_rsquared(y_true, y_pred):
     ss_res = np.sum((y_true - y_pred) ** 2)
     return 1 - ss_res / ss_total
 
+def mean_absolute_percentage_error(y_true, y_pred):
+    """
+    Compute the mean absolute percentage error of the predictions.
+    """
+    y_true = np.array(y_true)
+    y_pred = np.array(y_pred)
+    return np.mean(np.abs((y_true - y_pred) / (y_true + 1e-15))) * 100
 
 def bootstrap_ensemble(
     X_valid,
@@ -55,7 +62,8 @@ def bootstrap_ensemble(
     if metrics is None:
         metrics = {
             'mse': mean_squared_error,
-            'rsquared': r2_score
+            'rsquared': r2_score,
+            'mape': mean_absolute_percentage_error
         }
 
     # Initialize containers for models and metrics
@@ -64,10 +72,11 @@ def bootstrap_ensemble(
     rsquared_ensemble = np.zeros(n_ensembling)
     mape_ensemble = np.zeros(n_ensembling)
     y_pred_ensemble = np.zeros((X_valid.shape[0], n_ensembling))
-    other_pred_ensemble = np.zeros((other_pred_set.shape[0], n_ensembling)) if other_pred_set is not None else None
+    other_pred_ensemble = np.zeros((other_pred_set['data'].shape[0], n_ensembling)) if other_pred_set is not None else None
+    smoothness_losses = np.zeros(n_ensembling)
 
     x_valid_t = torch.tensor(X_valid, dtype=torch.float32).to(device)
-    x_other_t = torch.tensor(other_pred_set, dtype=torch.float32).to(device) if other_pred_set is not None else None
+    x_other_t = torch.tensor(other_pred_set['data'], dtype=torch.float32).to(device) if other_pred_set is not None else None
 
     for i in tqdm(range(n_ensembling), desc="Bootstrapping Ensembling"):
         current_seed = seed + i
@@ -84,10 +93,16 @@ def bootstrap_ensemble(
             other_pred = single_model(x_other_t).cpu().detach().numpy().flatten()
             other_pred_ensemble[:, i] = other_pred
 
+            dates = other_pred_set['date']
+            countries = other_pred_set['country']
+
+            _, cur_smoothness, _ = measure_smoothness(other_pred, dates, countries)
+            smoothness_losses[i] = cur_smoothness
+
         # Calculate metrics
         mse = metrics['mse'](y_valid, y_pred)
         rsquared = metrics['rsquared'](y_valid, y_pred)
-        mape = np.mean(np.abs((y_valid - y_pred) / (y_valid + 1e-15))) * 100
+        mape = metrics['mape'](y_valid, y_pred)
 
         # Store the model and its metrics
         bootstrap_models.append(single_model)
@@ -120,7 +135,8 @@ def bootstrap_ensemble(
         'best_model': best_model,
         'best_rsquared': best_rsquared,
         'y_pred_best': y_pred_best,
-        'other_pred_ensemble': other_pred_ensemble
+        'other_pred_ensemble': other_pred_ensemble,
+        'other_pred_smoothness': smoothness_losses
     }
 
 
@@ -334,7 +350,7 @@ def std_second_derivative(series):
 def total_variation(series):
     """Total variation."""
     diff = np.diff(series)
-    return np.sum(np.abs(diff)) / series.shape[0]
+    return np.mean(np.abs(diff))
 
 def high_frequency_energy(series, cutoff=0.1):
     """Fourier-based high-frequency energy."""
@@ -353,27 +369,27 @@ def wavelet_smoothness(series, wavelet='db1'):
     detail_coeffs = coeffs[1:]  # Skip approximation coefficients
     return np.sum([np.sum(c**2) for c in detail_coeffs]) / series.shape[0]
 
-def holder_exponent(series):
-    """Estimate the Hölder exponent."""
-    diff = np.abs(np.diff(series))
-    return -np.log(np.mean(diff)) / np.log(len(series))
+# def holder_exponent(series):
+#     """Estimate the Hölder exponent."""
+#     diff = np.abs(np.diff(series))
+#     return -np.log(np.mean(diff)) / np.log(len(series))
 
-def sobolev_norm(series):
+def l2_norm_of_derivative(series):
     """Sobolev norm (L2 norm of first derivative)."""
     diff = np.diff(series)
-    return np.sqrt(np.sum(diff**2)) / series.shape[0]
+    return np.linalg.norm(diff) / series.shape[0]
 
 def integrated_abs_curvature(series):
     """Integrated absolute curvature."""
     second_diff = np.abs(np.diff(series, n=2))
-    return np.sum(second_diff) / series.shape[0]
+    return np.mean(second_diff)
 
 def spline_roughness(series):
     """Spline-based roughness penalty."""
     x = np.arange(len(series))
     spline = UnivariateSpline(x, series, s=0)
     second_derivative = spline.derivative(n=2)
-    return np.sum(second_derivative(x)**2) / series.shape[0]
+    return np.mean(second_derivative(x)**2)
 
 all_smoothness_metrics = [
     std_first_derivative,
@@ -382,8 +398,7 @@ all_smoothness_metrics = [
     total_variation,
     high_frequency_energy,
     wavelet_smoothness,
-    holder_exponent,
-    sobolev_norm,
+    l2_norm_of_derivative,
     integrated_abs_curvature,
     spline_roughness
 ]
