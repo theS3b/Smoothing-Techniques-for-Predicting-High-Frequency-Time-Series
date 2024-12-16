@@ -190,8 +190,12 @@ def apply_kalman_filter(model, preprocessor, use_true_values=False, seed=42, acc
         value_name="Value"
     )
 
+    r2_true = true_data[true_data['date'].isin(preprocessor.dates_valid) & true_data['country'].isin(preprocessor.country_valid)]
+    r2_pred = r2_true[['date', 'country']].merge(kf_data, on=['date', 'country'])['y_kf'].values
+    r2_true = r2_true['y'].values
+
     # Compute R^2 and smoothness
-    r2 = compute_rsquared(true_data['y'].values, true_data.merge(kf_data, on=['date', 'country'], suffixes=('_true', '_kf'))['y_kf'])
+    r2 = compute_rsquared(r2_true, r2_pred)
     smoothness_loss = measure_smoothness_with_df(kf_data.rename(columns={'y_kf': 'data'}))
 
     return kf_predictions_melted, hf_data_melted, r2, smoothness_loss
