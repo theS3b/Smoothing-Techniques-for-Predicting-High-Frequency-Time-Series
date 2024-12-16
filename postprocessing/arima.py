@@ -277,7 +277,7 @@ def smooth_nn_predictions_with_arima_auto(pred):
                 )
                 
                 # Print best model params
-                print(f'Best ARIMA model for {country}: {model.order}')
+                # print(f'Best ARIMA model for {country}: {model.order}')
 
                 optimal_order = model.order
                 arima_model = ARIMA(country_data['y_pred_high_freq'], order=optimal_order)
