@@ -191,7 +191,7 @@ def apply_kalman_filter(model, preprocessor, use_true_values=False, seed=42, acc
     )
 
     # Compute R^2 and smoothness
-    r2 = compute_rsquared(true_data.merge(kf_data, on=['date', 'country'], suffixes=('_true', '_kf'))['y_kf'], true_data['y'].values)
-    smoothness = measure_smoothness_with_df(kf_data.rename(columns={'y_kf': 'data'}))
+    r2 = compute_rsquared(true_data['y'].values, true_data.merge(kf_data, on=['date', 'country'], suffixes=('_true', '_kf'))['y_kf'])
+    smoothness_loss = measure_smoothness_with_df(kf_data.rename(columns={'y_kf': 'data'}))
 
-    return kf_predictions_melted, hf_data_melted, r2, smoothness
+    return kf_predictions_melted, hf_data_melted, r2, smoothness_loss
