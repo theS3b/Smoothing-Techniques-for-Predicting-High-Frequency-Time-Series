@@ -136,7 +136,7 @@ def bootstrap_ensemble(
         'best_rsquared': best_rsquared,
         'y_pred_best': y_pred_best,
         'other_pred_ensemble': other_pred_ensemble,
-        'other_pred_smoothness': smoothness_losses
+        'other_pred_smoothness': smoothness_losses,
     }
 
 
@@ -318,7 +318,7 @@ def interactive_plot_predictions(
     )
 
 
-def summarize_results(y_valid, y_pred_mean, rsquared_ensemble, metric_name="R squared"):
+def summarize_results(y_valid, y_pred_mean, rsquared_ensemble, metric_name="R squared", xlabel=""):
     # Plot the r squared
     ensemble_r2 = r2_score(y_valid, y_pred_mean)
     ensemble_mse = mean_squared_error(y_valid, y_pred_mean)
@@ -328,9 +328,9 @@ def summarize_results(y_valid, y_pred_mean, rsquared_ensemble, metric_name="R sq
     print(f"Ensemble MAPE: {ensemble_mape}")
 
     sns.histplot(rsquared_ensemble, bins=30, kde=True)
-    plt.xlabel(metric_name)
+    plt.xlabel(xlabel)
     plt.ylabel("Density")
-    plt.title(f"Distribution of {metric_name} values")
+    plt.title(f"{metric_name}")
 
 def std_first_derivative(series):
     """Standard deviation of the first derivative (finite differences)."""
@@ -368,11 +368,6 @@ def wavelet_smoothness(series, wavelet='db1'):
     coeffs = pywt.wavedec(series, wavelet)
     detail_coeffs = coeffs[1:]  # Skip approximation coefficients
     return np.sum([np.sum(c**2) for c in detail_coeffs]) / series.shape[0]
-
-# def holder_exponent(series):
-#     """Estimate the Hölder exponent."""
-#     diff = np.abs(np.diff(series))
-#     return -np.log(np.mean(diff)) / np.log(len(series))
 
 def l2_norm_of_derivative(series):
     """Sobolev norm (L2 norm of first derivative)."""

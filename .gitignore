@@ -11,3 +11,5 @@ __pycache__/
 
 # Test
 .pytest_cache/
+
+paper_data/*.pkl

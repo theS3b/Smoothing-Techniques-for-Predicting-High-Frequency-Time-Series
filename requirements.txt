@@ -1,0 +1,12 @@
+pandas
+numpy
+matplotlib
+seaborn
+statsmodels
+sklearn
+pytorch
+ipywidgets
+tqdm
+pywt
+filterpy
+pmdarima
