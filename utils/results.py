@@ -347,11 +347,6 @@ def std_second_derivative(series):
     second_diff = np.diff(series, n=2)
     return np.std(second_diff)
 
-def total_variation(series):
-    """Total variation."""
-    diff = np.diff(series)
-    return np.mean(np.abs(diff))
-
 def high_frequency_energy(series, cutoff=0.1):
     """Fourier-based high-frequency energy."""
     fft = np.fft.fft(series)
@@ -390,7 +385,6 @@ all_smoothness_metrics = [
     std_first_derivative,
     mean_abs_first_difference,
     std_second_derivative,
-    total_variation,
     high_frequency_energy,
     wavelet_smoothness,
     l2_norm_of_derivative,

@@ -27,7 +27,7 @@ The notebooks at the root of the repository contain our work on different smooth
 
 Our models are defined in the `utils/` folder, containing the reference neural network (`neural_network.py`), and in `postprocessing/` (`KF.py`, `arima.py`).
 
-The folder `utils/` provides the code used for data loading and preprocessing in addition to `results.py` which contains the code used to evaluate our models regarding $R^2$ score and our own smoothness metric, a composition of 9 different measures of time series smoothness.
+The folder `utils/` provides the code used for data loading and preprocessing in addition to `results.py` which contains the code used to evaluate our models regarding $R^2$ score and our own smoothness metric, a composition of different measures of time series smoothness.
 
 In `data/`, you can find the dataset we used for the project (under `data/gdp/` and `data/google_trends/`) and the plots generated in the notebooks under `data/output_for_paper/` (sometimes based on data saved in `paper_data/`).
 
