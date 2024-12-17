@@ -125,6 +125,9 @@ def train_nn(x_train, y_train, x_valid, y_valid, num_epochs=2000, learning_rate=
         print(f"Final training loss: {t_loss.item()}")
         print(f"Final validation loss: {v_loss.item()}")
         print(f"Final validation R^2: {r_squared}")
+        best_r_squared = max(valid_r_squared)
+        best_epoch = valid_r_squared.index(best_r_squared)
+        print(f"Best r squared: {best_r_squared} at epoch {best_epoch}")
 
         plt.figure(figsize=(10, 3))
         plt.plot(training_loss, label="Training loss")

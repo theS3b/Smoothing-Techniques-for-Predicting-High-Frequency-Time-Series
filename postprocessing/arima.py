@@ -2,6 +2,8 @@ from statsmodels.tsa.arima.model import ARIMA
 from pmdarima import auto_arima
 import pandas as pd
 import numpy as np
+import warnings
+warnings.filterwarnings('ignore')
 
 def postprocess_arima_auto(y_pred_train_country, y_pred_valid_country):
     """
@@ -223,7 +225,6 @@ def smooth_nn_predictions_with_arima(pred, p=1, d=1, q=0):
                 adjusted_country_data['y_pred_high_freq'] = smoothed_predictions
 
             except Exception as e:
-                print(f'ARIMA failed for country {country}: {e}')
                 adjusted_country_data = country_data.copy()
         else:
             adjusted_country_data = country_data.copy()
