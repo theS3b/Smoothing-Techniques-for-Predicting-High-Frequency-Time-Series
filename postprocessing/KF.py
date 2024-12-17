@@ -113,7 +113,7 @@ class KF:
 
         return predictions
 
-def apply_kalman_filter(model, preprocessor, use_true_values=False, seed=42, accurate_noise_var=None, accel_var=1e-5):
+def apply_kalman_filter(model, preprocessor, use_true_values=False, seed=42, accurate_noise_var=None, accel_var=1e-5, true_values_offset_years=1):
     """
     Applies a constant acceleration model Kalman filter on the predictions of the model on the high frequency data from the preprocessor.
     Can use true values to correct the Kalman filter state estimate (useful when we have high frequency X and low frequency y).
@@ -124,6 +124,7 @@ def apply_kalman_filter(model, preprocessor, use_true_values=False, seed=42, acc
     seed: the seed to use
     accurate_noise_var: the noise variance to use for the accurate data
     accel_var: the acceleration variance to use
+    true_values_offset_years: the lag when updating the filter with past true values
 
     Returns:
     - kf_predictions_melted: the predictions after applying the Kalman filter
@@ -161,8 +162,10 @@ def apply_kalman_filter(model, preprocessor, use_true_values=False, seed=42, acc
 
     for date in hf_data['date'].unique():
         mask = lambda df: df['date'] == date
+        mask_one_year_ago = lambda df: df['date'] == date - pd.DateOffset(years=true_values_offset_years)
         
-        true_masked = true_data[mask(true_data)]
+        # Find accurate data from 1 year ago
+        true_masked = true_data[mask_one_year_ago(true_data)]
 
         nn_masked = hf_data[mask(hf_data)]
         # Keep only those for which we do not have accurate data
