@@ -1,7 +1,7 @@
 <font size=4><div align='center'>[[📄 Tech Report](pdf/Smoothing-Techniques-for-Predicting-High-Frequency-Time-Series.pdf)]</div></font>
 
 <h1 align="center">Smoothing Techniques for Predicting High-Frequency Time Series</h1>
-<p align="center"><i>IIPP Lab (EPFL), 2024–2025</i></p>
+<p align="center"><i>IIPP Lab (EPFL), ML Course Project, 2024–2025</i></p>
 
 ### 📝 Abstract
 
