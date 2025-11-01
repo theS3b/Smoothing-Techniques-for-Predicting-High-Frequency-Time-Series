@@ -1,4 +1,4 @@
-name: ml-proj
+name: ml-smoothing
 channels:
   - pytorch
   - nvidia
